@@ -1,17 +1,18 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:fimtale/elements/ftemoji.dart';
 import 'package:fimtale/elements/share_card.dart';
+import 'package:fimtale/elements/spoiler.dart';
 import 'package:fimtale/views/custom/editor.dart';
 import 'package:fimtale/views/viewers/tag.dart';
 import 'package:fimtale/views/viewers/user.dart';
 import 'package:flustars/flustars.dart';
 import 'package:flutter/gestures.dart';
-import 'package:fimtale/elements/ftemoji.dart';
-import 'package:fimtale/elements/spoiler.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_html/html_parser.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:markdown/markdown.dart' show markdownToHtml;
-import 'package:markdown_widget/markdown_widget.dart';
 import 'package:fimtale/library/request_handler.dart';
 import 'package:fimtale/views/viewers/image_viewer.dart';
 import 'package:fimtale/views/viewers/topic_menu.dart';
@@ -122,7 +123,8 @@ class _TopicViewState extends State<TopicView> {
       //以上是计算进度的函数，意思大约是看看自己滚动到了页面的哪里，再与作品的开头和结尾进行对比，最后确定进度。
       //其中这个计算函数包裹在了listener之中，当页面滚动时，这个函数就执行一次。因此最好别在这里放入太多的setState，以防卡爆。
 
-      if (_bottomIndex == 0 && curr >= _sc.position.maxScrollExtent - 400) {
+      if (_bottomIndex == 0 &&
+          _sc.position.pixels >= _sc.position.maxScrollExtent - 400) {
         _getComments(0);
       } //如果划到了最底部（现在的位置距离最下面只有不到400的距离），尝试着加载评论。
     });
@@ -134,8 +136,7 @@ class _TopicViewState extends State<TopicView> {
   void dispose() {
     if (_progress > 0) {
       Map<String, dynamic> params = {};
-      params["PostID"] =
-          _rq.renderer.extractFromTree(_topicInfo, ["PostID"], 0).toString();
+      params["PostID"] = (_topicInfo["PostID"] ?? 0).toString();
       params["Progress"] = _progress.toString();
       if (_from.isNotEmpty) {
         params["PreviousRoute"] = _from.join(",");
@@ -226,7 +227,7 @@ class _TopicViewState extends State<TopicView> {
           }
         } //在目录中搜索前一章与后一章的ID，并分别赋值。
         if (commentID <= 0) {
-          _rq.setListByName("Comments", result["CommentsArray"]);
+          _rq.setListByName("Comments", result["CommentArray"]);
           _rq.setCurPage("Comments", result["Page"]);
           _rq.setTotalPage("Comments", result["TotalPage"]);
           _rq.setIsLoading("Comments", false);
@@ -256,9 +257,8 @@ class _TopicViewState extends State<TopicView> {
         } //更新预加载的内容。如果有前一章与后一章，那么添加到预加载内容中；否则重新请求预加载内容。
       });
 
-      double progress = double.parse(_rq.renderer
-          .extractFromTree(_topicInfo, ["ReadingProgress"], 0)
-          .toString());
+      double progress =
+          double.parse((_topicInfo["ReadingProgress"] ?? 0).toString());
       if (progress > 0 && progress <= 1) {
         SnackBar(
           content: new Text(
@@ -305,8 +305,8 @@ class _TopicViewState extends State<TopicView> {
     if (!mounted) return;
 
     if (result["Status"] == 1) {
-      _relatedChannels = result["RelatedChannelsArray"];
-      _recommendTopics = result["RecommendTopicsArray"];
+      _relatedChannels = result["RelatedChannelArray"];
+      _recommendTopics = result["RecommendTopicArray"];
     }
 
     setState(() {
@@ -347,7 +347,7 @@ class _TopicViewState extends State<TopicView> {
         "Comments",
         (data) {
           return {
-            "List": data["CommentsArray"],
+            "List": data["CommentArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -480,12 +480,12 @@ class _TopicViewState extends State<TopicView> {
   @override
   Widget build(BuildContext context) {
     //首先获取到该名用户相对于作品所有的权限。
-    List<String> allowedOptions = List<String>.from(
-            _rq.renderer.extractFromTree(_topicInfo, ["AllowedOptions"], [])),
-        parentAllowedOptions = List<String>.from(
-            _rq.renderer.extractFromTree(_parent, ["AllowedOptions"], [])),
-        authorAllowedOptions = List<String>.from(
-            _rq.renderer.extractFromTree(_author, ["AllowedOptions"], []));
+    List<String> allowedOptions =
+            List<String>.from(_topicInfo["AllowedOptions"] ?? []),
+        parentAllowedOptions =
+            List<String>.from(_parent["AllowedOptions"] ?? []),
+        authorAllowedOptions =
+            List<String>.from(_author["AllowedOptions"] ?? []);
 
     //配置界面右上角操作（就是那个省略号）中所有的选项。
     List<PopupMenuItem<String>> actionMenu = [];
@@ -618,7 +618,7 @@ class _TopicViewState extends State<TopicView> {
       ));
 
     //加载用户背景。
-    String userBg = _rq.renderer.extractFromTree(_author, ["Background"], "");
+    String userBg = _author["Background"] ?? "";
     if (userBg.length == 0)
       userBg = "https://fimtale.com/static/img/userbg.jpg";
     pageBody.add(Container(
@@ -662,12 +662,10 @@ class _TopicViewState extends State<TopicView> {
       )); //如果信息正在加载中，那么显示加载中的那个圈圈。
     } else {
       //否则通过读取信息加载整个页面。以下就是一个通过读取获得的信息加载整个页面的过程。在这里它们加载的几乎都是组件，虽然代码看似比较长，但都是大同小异。
-      int likes = _rq.renderer.extractFromTree(_topicInfo, ["Upvotes"], 0),
-          dislikes = _rq.renderer.extractFromTree(_topicInfo, ["Downvotes"], 0);
+      int likes = _topicInfo["Upvotes"] ?? 0,
+          dislikes = _topicInfo["Downvotes"] ?? 0;
 
-      List<String> originalLinks = _rq.renderer
-          .extractFromTree(_topicInfo, ["OriginalLink"], "")
-          .split(" ");
+      List<String> originalLinks = (_topicInfo["OriginalLink"] ?? "").split(" ");
       originalLinks.removeWhere((element) => element == "");
       List<TextSpan> originalLinkSpans = [];
       if (originalLinks.length > 0) {
@@ -703,9 +701,7 @@ class _TopicViewState extends State<TopicView> {
 
       List<Widget> secondInfoLine = [
         Chip(
-          label: Text(_rq.renderer
-              .extractFromTree(_topicInfo, ["Views"], 0)
-              .toString()),
+          label: Text((_topicInfo["Views"] ?? 0).toString()),
           labelStyle: TextStyle(
             color: Theme.of(context).disabledColor,
           ),
@@ -716,9 +712,7 @@ class _TopicViewState extends State<TopicView> {
           backgroundColor: _getBackground(),
         ),
         Chip(
-          label: Text(_rq.renderer
-              .extractFromTree(_topicInfo, ["Comments"], 0)
-              .toString()),
+          label: Text((_topicInfo["Comments"] ?? 0).toString()),
           labelStyle: TextStyle(
             color: Theme.of(context).disabledColor,
           ),
@@ -735,9 +729,7 @@ class _TopicViewState extends State<TopicView> {
           _topicInfo["ID"] == _parent["ID"])
         secondInfoLine.addAll([
           Chip(
-            label: Text(_rq.renderer
-                .extractFromTree(_topicInfo, ["Followers"], 0)
-                .toString()),
+            label: Text((_topicInfo["Followers"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(context).disabledColor,
             ),
@@ -748,9 +740,7 @@ class _TopicViewState extends State<TopicView> {
             backgroundColor: _getBackground(),
           ),
           Chip(
-            label: Text(_rq.renderer
-                .extractFromTree(_topicInfo, ["HighPraise"], 0)
-                .toString()),
+            label: Text((_topicInfo["HighPraise"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(context).disabledColor,
             ),
@@ -761,9 +751,7 @@ class _TopicViewState extends State<TopicView> {
             backgroundColor: _getBackground(),
           ),
           Chip(
-            label: Text(_rq.renderer
-                .extractFromTree(_topicInfo, ["Downloads"], 0)
-                .toString()),
+            label: Text((_topicInfo["Downloads"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(context).disabledColor,
             ),
@@ -816,21 +804,18 @@ class _TopicViewState extends State<TopicView> {
                   onTap: () {
                     Navigator.push(context,
                         MaterialPageRoute(builder: (context) {
-                      return UserView(value: {
-                        "UserName": _rq.renderer
-                            .extractFromTree(_author, ["UserName"], "")
-                      });
+                      return UserView(
+                          value: {"UserName": _author["UserName"] ?? ""});
                     }));
                   },
-                  leading: _rq.renderer.userAvatar(
-                      _rq.renderer.extractFromTree(_author, ["ID"], 0)),
+                  leading: _rq.renderer.userAvatar(_author["ID"] ?? 0),
                   title: Text(
-                    _rq.renderer.extractFromTree(_author, ["UserName"], ""),
+                    _author["UserName"] ?? "",
                     textScaleFactor: 1.25,
                     maxLines: 1,
                   ),
                   subtitle: Text(
-                    _rq.renderer.extractFromTree(_author, ["UserIntro"], ""),
+                    _author["UserIntro"] ?? "",
                     maxLines: 1,
                   ),
                   trailing: authorAllowedOptions.contains("favorite")
@@ -839,11 +824,7 @@ class _TopicViewState extends State<TopicView> {
                               ? Icons.favorite
                               : Icons.favorite_border),
                           onPressed: () {
-                            _rq.manage(
-                                _rq.renderer
-                                    .extractFromTree(_author, ["ID"], 0),
-                                4,
-                                "3", (res) {
+                            _rq.manage(_author["ID"] ?? 0, 4, "3", (res) {
                               setState(() {
                                 if (_author["IsFavorite"])
                                   _author["Followers"]--;
@@ -861,11 +842,8 @@ class _TopicViewState extends State<TopicView> {
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   child: _prevID == 0
-                      ? _rq.renderer.mainTagSet(
-                          _rq.renderer
-                              .extractFromTree(_topicInfo, ["Tags"], []),
-                          _parent["IsDel"] > 0,
-                          _parent["ExaminationStatus"])
+                      ? _rq.renderer.mainTagSet(_topicInfo["Tags"] ?? [],
+                          _parent["IsDel"] > 0, _parent["ExaminationStatus"])
                       : SizedBox(
                           height: 0,
                         ),
@@ -877,7 +855,7 @@ class _TopicViewState extends State<TopicView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        _rq.renderer.extractFromTree(_parent, ["Title"], ""),
+                        _parent["Title"] ?? "",
                         textScaleFactor: 2.4,
                       ), //作品标题。
                       originalLinkSpans.length > 0
@@ -893,8 +871,9 @@ class _TopicViewState extends State<TopicView> {
                           ? Wrap(
                               spacing: 8,
                               children: _rq.renderer.tags2Chips(
-                                List.from(_rq.renderer.extractFromTree(
-                                    _topicInfo, ["Tags", "OtherTags"], [])),
+                                List.from(
+                                    (_topicInfo["Tags"] ?? {})["OtherTags"] ??
+                                        []),
                                 onTap: (tag) {
                                   Navigator.push(context,
                                       MaterialPageRoute(builder: (context) {
@@ -906,8 +885,7 @@ class _TopicViewState extends State<TopicView> {
                           : Container(
                               padding: EdgeInsets.symmetric(vertical: 8),
                               child: Text(
-                                _rq.renderer
-                                    .extractFromTree(_topicInfo, ["Title"], ""),
+                                _topicInfo["Title"] ?? "",
                                 textScaleFactor: 1.6,
                               ),
                             ), //如果是前言页，显示其余的标签；如果是章节，显示章节标题。
@@ -915,9 +893,7 @@ class _TopicViewState extends State<TopicView> {
                         children: <Widget>[
                           (_parent["Tags"]["Type"] == "图集")
                               ? Chip(
-                                  label: Text(_rq.renderer
-                                      .extractFromTree(
-                                          _topicInfo, ["ImageCount"], 0)
+                                  label: Text((_topicInfo["ImageCount"] ?? 0)
                                       .toString()),
                                   labelStyle: TextStyle(
                                     color: Theme.of(context).disabledColor,
@@ -929,9 +905,7 @@ class _TopicViewState extends State<TopicView> {
                                   backgroundColor: _getBackground(),
                                 )
                               : Chip(
-                                  label: Text(_rq.renderer
-                                      .extractFromTree(
-                                          _topicInfo, ["WordCount"], 0)
+                                  label: Text((_topicInfo["WordCount"] ?? 0)
                                       .toString()),
                                   labelStyle: TextStyle(
                                     color: Theme.of(context).disabledColor,
@@ -943,9 +917,7 @@ class _TopicViewState extends State<TopicView> {
                                   backgroundColor: _getBackground(),
                                 ),
                           Chip(
-                            label: Text(_rq.renderer.formatTime(_rq.renderer
-                                .extractFromTree(
-                                    _topicInfo, ["DateCreated"], 0))),
+                            label: Text(_rq.renderer.formatTime(_topicInfo["DateCreated"] ?? 0)),
                             labelStyle: TextStyle(
                               color: Theme.of(context).disabledColor,
                             ),
@@ -1161,14 +1133,12 @@ class _TopicViewState extends State<TopicView> {
       bottomBarItems.add(IconButton(
         icon: Icon(
           Icons.thumb_up,
-          color: _rq.renderer.extractFromTree(_topicInfo, ["MyVote"], "") ==
-                  "upvote"
+          color: (_topicInfo["MyVote"] ?? "") == "upvote"
               ? Colors.green
               : Colors.black.withAlpha(137),
         ),
         onPressed: () {
-          _rq.manage(_rq.renderer.extractFromTree(_parent, ["ID"], 0), 6, "1",
-              (res) {
+          _rq.manage(_parent["ID"] ?? 0, 6, "1", (res) {
             setState(() {
               if (_topicInfo["MyVote"] != "upvote") {
                 if (_topicInfo["MyVote"] == "downvote")
@@ -1187,14 +1157,12 @@ class _TopicViewState extends State<TopicView> {
       bottomBarItems.add(IconButton(
         icon: Icon(
           Icons.thumb_down,
-          color: _rq.renderer.extractFromTree(_topicInfo, ["MyVote"], "") ==
-                  "downvote"
+          color: (_topicInfo["MyVote"] ?? "") == "downvote"
               ? Colors.red
               : Colors.black.withAlpha(137),
         ),
         onPressed: () {
-          _rq.manage(_rq.renderer.extractFromTree(_parent, ["ID"], 0), 7, "1",
-              (res) {
+          _rq.manage(_parent["ID"] ?? 0, 7, "1", (res) {
             setState(() {
               if (_topicInfo["MyVote"] != "downvote") {
                 if (_topicInfo["MyVote"] == "upvote") _topicInfo["Upvotes"]--;
@@ -1211,17 +1179,15 @@ class _TopicViewState extends State<TopicView> {
     if (allowedOptions.contains("highpraise")) //HighPraise
       bottomBarItems.add(IconButton(
         icon: Icon(
-          _rq.renderer.extractFromTree(_topicInfo, ["MyHighPraise"], 0) > 0
+          (_topicInfo["MyHighPraise"] ?? 0) > 0
               ? Icons.star
               : Icons.star_border,
-          color:
-              _rq.renderer.extractFromTree(_topicInfo, ["MyHighPraise"], 0) > 0
-                  ? Colors.orange
-                  : Colors.black.withAlpha(137),
+          color: (_topicInfo["MyHighPraise"] ?? 0) > 0
+              ? Colors.orange
+              : Colors.black.withAlpha(137),
         ),
         onPressed: () {
-          if (_rq.renderer.extractFromTree(_topicInfo, ["MyHighPraise"], 1) ==
-              0) {
+          if ((_topicInfo["MyHighPraise"] ?? 1) == 0) {
             showDialog(
                 //弹出一个窗口，问用户要给几个HighPraise。原创和翻译可以给两个，转载只能给一个。
                 context: context,
@@ -1229,10 +1195,7 @@ class _TopicViewState extends State<TopicView> {
                   List<Widget> actions = [
                     FlatButton(
                       onPressed: () {
-                        _rq.manage(
-                            _rq.renderer.extractFromTree(_parent, ["ID"], 0),
-                            1,
-                            "HighPraise", (res) {
+                        _rq.manage(_parent["ID"] ?? 0, 1, "HighPraise", (res) {
                           setState(() {
                             _topicInfo["HighPraise"] =
                                 _topicInfo["HighPraise"] -
@@ -1248,14 +1211,12 @@ class _TopicViewState extends State<TopicView> {
                       child: Text(FlutterI18n.translate(context, "give_one")),
                     )
                   ];
-                  if (["原创", "翻译"].contains(_rq.renderer
-                      .extractFromTree(_parent, ["Tags", "Source"], "")))
+                  if (["原创", "翻译"]
+                      .contains((_parent["Tags"] ?? {})["Source"] ?? ""))
                     actions.add(FlatButton(
                       onPressed: () {
-                        _rq.manage(
-                            _rq.renderer.extractFromTree(_parent, ["ID"], 0),
-                            1,
-                            "DoubleHighPraise", (res) {
+                        _rq.manage(_parent["ID"] ?? 0, 1, "DoubleHighPraise",
+                            (res) {
                           setState(() {
                             _topicInfo["HighPraise"] =
                                 _topicInfo["HighPraise"] -
@@ -1292,16 +1253,15 @@ class _TopicViewState extends State<TopicView> {
     if (allowedOptions.contains("favorite")) //收藏
       bottomBarItems.add(IconButton(
         icon: Icon(
-          _rq.renderer.extractFromTree(_topicInfo, ["IsFavorite"], false)
+          (_topicInfo["IsFavorite"] ?? false)
               ? Icons.bookmark
               : Icons.bookmark_border,
-          color: _rq.renderer.extractFromTree(_topicInfo, ["IsFavorite"], false)
+          color: (_topicInfo["IsFavorite"] ?? false)
               ? Colors.lightBlue
               : Colors.black.withAlpha(137),
         ),
         onPressed: () {
-          _rq.manage(_rq.renderer.extractFromTree(_parent, ["ID"], 0), 4, "1",
-              (res) {
+          _rq.manage(_parent["ID"] ?? 0, 4, "1", (res) {
             setState(() {
               _topicInfo["IsFavorite"] = !_topicInfo["IsFavorite"];
               if (_topicInfo["IsFavorite"]) {
@@ -1403,9 +1363,8 @@ class _TopicViewState extends State<TopicView> {
                     FlatButton(
                       onPressed: () {
                         _rq.manage(
-                            _rq.renderer.extractFromTree(_parent, ["ID"], 0),
-                            1,
-                            "InsertExaminationQueue", (res) {
+                            _parent["ID"] ?? 0, 1, "InsertExaminationQueue",
+                            (res) {
                           Toast.show(res["Message"], context);
                           _refresh();
                         });
@@ -1444,10 +1403,8 @@ class _TopicViewState extends State<TopicView> {
                   actions: <Widget>[
                     FlatButton(
                       onPressed: () {
-                        _rq.manage(
-                            _rq.renderer.extractFromTree(_parent, ["ID"], 0),
-                            1,
-                            "PassExamination", (res) {
+                        _rq.manage(_parent["ID"] ?? 0, 1, "PassExamination",
+                            (res) {
                           Toast.show(res["Message"], context);
                           _refresh();
                         });
@@ -1484,8 +1441,7 @@ class _TopicViewState extends State<TopicView> {
           )
               .then((value) {
             if (value == null || value.length == 0) return;
-            _rq.manage(_rq.renderer.extractFromTree(_parent, ["ID"], 0), 1,
-                "FailExamination", (res) {
+            _rq.manage(_parent["ID"] ?? 0, 1, "FailExamination", (res) {
               Toast.show(res["Message"], context);
               Navigator.pop(context);
             }, params: {"Reason": value});
@@ -1497,7 +1453,7 @@ class _TopicViewState extends State<TopicView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _rq.updateShareCardInfo().then((value) {
         if (!mounted) return;
-        setState(() {});
+        if (value) setState(() {});
       });
 
       if (_comments.containsKey(_commentID) && !_isCommentShown) {
@@ -1570,167 +1526,91 @@ class _TopicViewState extends State<TopicView> {
   }
 
   Widget _showTopicContent() {
+    var _context = context;
     return GestureDetector(
-        child: Column(
-          //这整个下面都是作品内容的渲染。服务器端传回的作品是MarkDown格式，所以使用MarkDownGenerator组件来显示作品。
+        child: Html(
           key: _passage,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.max,
-          children: MarkdownGenerator(
-            data: _rq.renderer.emojiUtil(
-                _rq.renderer.extractFromTree(_topicInfo, ["Content"], "")),
-            styleConfig: StyleConfig(
-              imgBuilder: (String url, attributes) {
-                int index = _imageUrls.indexOf(url);
-                if (index < 0) {
-                  index = _imageUrls.length;
-                  _imageUrls.add(url);
-                }
-                return GestureDetector(
-                  onTap: () {
-                    _openImageViewer(index);
-                  },
-                  child: Image.network(url),
-                );
-              },
-              titleConfig: TitleConfig(
-                h1: TextStyle(
-                  fontSize: _fontSize * 2,
-                ),
-                h2: TextStyle(
-                  fontSize: _fontSize * (11 / 6),
-                ),
-                h3: TextStyle(
-                  fontSize: _fontSize * (5 / 3),
-                ),
-                h4: TextStyle(
-                  fontSize: _fontSize * (3 / 2),
-                ),
-                h5: TextStyle(
-                  fontSize: _fontSize * (4 / 3),
-                ),
-                h6: TextStyle(
-                  fontSize: _fontSize * (7 / 6),
-                ),
-              ),
-              pConfig: PConfig(
-                textStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-                linkStyle: TextStyle(
-                  fontSize: _fontSize,
-                  color: Colors.blue,
-                ),
-                onLinkTap: (url) {
-                  _rq.launchURL(url);
+          data: _rq.renderer.emojiUtil(_topicInfo["Content"] ?? ""),
+          onLinkTap: (url) {
+            _rq.launchURL(url);
+          },
+          customRender: {
+            "img": (RenderContext context, child, attributes, element) {
+              int index = _imageUrls.indexOf(attributes['src']);
+              if (index < 0) {
+                index = _imageUrls.length;
+                _imageUrls.add(attributes['src']);
+              }
+              return GestureDetector(
+                onTap: () {
+                  _openImageViewer(index);
                 },
-                custom: (node) {
-                  switch (node.tag) {
-                    case "collapse":
-                    case "reply":
-                      return ExpansionTile(
-                        title: new Text(FlutterI18n.translate(
-                            context, "something_is_collapsed")),
-                        children: <Widget>[Text(node.attributes["content"])],
-                      );
-                      break;
-                    case "login":
-                      if (node.attributes["available"] == "true") {
-                        return Card(
-                          child: Container(
-                            padding: EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: <Widget>[
-                                Text(
-                                  FlutterI18n.translate(
-                                      context, "content_visible_when_login"),
-                                  textScaleFactor: 1.25,
-                                ),
-                                Text(node.attributes["content"]),
-                              ],
-                            ),
-                          ),
-                        );
-                      } else {
-                        return Card(
-                          child: Container(
-                            padding: EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: <Widget>[
-                                Text(
-                                  FlutterI18n.translate(
-                                      context, "login_to_read"),
-                                  textScaleFactor: 1.25,
-                                ),
-                                Text(node.attributes["content"]),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      break;
-                    case "share":
-                      _rq.shareLinkBuffer.add("/" +
-                          _rq.getTypeCode(node.attributes["type"]) +
-                          "/" +
-                          node.attributes["code"]);
-                      return ShareCard(_rq, node.attributes["type"],
-                          node.attributes["code"]);
-                      break;
-                    case "spoiler":
-                      return Spoiler(
-                        content: node.attributes["content"],
-                        textStyle: TextStyle(
-                          fontSize: _fontSize,
+                child: Image.network(attributes['src']),
+              );
+            },
+            "collapse": (RenderContext context, child, attributes, element) {
+              return ExpansionTile(
+                title: new Text(
+                    FlutterI18n.translate(_context, "something_is_collapsed")),
+                children: <Widget>[Text(element.text)],
+              );
+            },
+            "reply": (RenderContext context, child, attributes, element) {
+              return ExpansionTile(
+                title: new Text(
+                    FlutterI18n.translate(_context, "something_is_collapsed")),
+                children: <Widget>[Text(element.text)],
+              );
+            },
+            "login": (RenderContext context, child, attributes, element) {
+              if (attributes["available"] == "true") {
+                return Card(
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          FlutterI18n.translate(
+                              _context, "content_visible_when_login"),
+                          textScaleFactor: 1.25,
                         ),
-                      );
-                      break;
-                    case "ftemoji":
-                      return FTEmoji(
-                        node.attributes["code"],
-                        size: _fontSize,
-                      );
-                      break;
-                    default:
-                      return SizedBox(
-                        width: 0,
-                        height: 0,
-                      );
-                  }
-                },
-              ),
-              blockQuoteConfig: BlockQuoteConfig(
-                blockStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-              ),
-              tableConfig: TableConfig(
-                headerStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-                bodyStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-              ),
-              preConfig: PreConfig(
-                textStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-              ),
-              olConfig: OlConfig(
-                textStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-              ),
-              ulConfig: UlConfig(
-                textStyle: TextStyle(
-                  fontSize: _fontSize,
-                ),
-              ),
-            ),
-          ).widgets,
+                        Text(element.text),
+                      ],
+                    ),
+                  ),
+                );
+              } else {
+                return Card(
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          FlutterI18n.translate(_context, "login_to_read"),
+                          textScaleFactor: 1.25,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            },
+            "share": (RenderContext context, child, attributes, element) {
+              _rq.shareLinkBuffer.add("/" +
+                  _rq.getTypeCode(attributes["type"]) +
+                  "/" +
+                  attributes["code"]);
+              return ShareCard(_rq, attributes["type"], attributes["code"]);
+            },
+            "spoiler": (RenderContext context, child, attributes, element) {
+              return Spoiler(content: element.text);
+            },
+            "ftemoji": (RenderContext context, child, attributes, element) {
+              return FTEmoji(attributes["code"]);
+            },
+          },
         ),
         onDoubleTap: () {
           //当双击时，打开能够设置阅读进度、字体大小和背景颜色的界面。
@@ -2049,7 +1929,7 @@ class _TopicViewState extends State<TopicView> {
       )
     ]);
 
-    if (_topicID == _rq.renderer.extractFromTree(_parent, ["ID"], 0))
+    if (_topicID == (_parent["ID"] ?? 0))
       commentSelectors.addAll([
         SizedBox(
           width: 5,
@@ -2083,23 +1963,20 @@ class _TopicViewState extends State<TopicView> {
       //循环遍历评论列表。
       GlobalKey temp = new GlobalKey();
       int index = curIndex;
-      List<String> allowedOptions = List<String>.from(
-          _rq.renderer.extractFromTree(element, ["AllowedOptions"], []));
+      List<String> allowedOptions =
+          List<String>.from(element["AllowedOptions"] ?? []);
       List<Widget> actionBarItems = [];
       actionBarItems.addAll([
         IconButton(
             icon: Icon(
               Icons.thumb_up,
-              color: _rq.renderer.extractFromTree(element, ["MyVote"], null) ==
-                      "upvote"
+              color: (element["MyVote"] ?? null) == "upvote"
                   ? Colors.green
                   : Colors.black.withAlpha(137),
             ),
             onPressed: () {
               if (allowedOptions.contains("upvote"))
-                _rq.manage(
-                    _rq.renderer.extractFromTree(element, ["ID"], 0), 6, "4",
-                    (res) {
+                _rq.manage(element["ID"] ?? 0, 6, "4", (res) {
                   setState(() {
                     if (element["MyVote"] != "upvote") {
                       if (element["MyVote"] == "downvote")
@@ -2114,7 +1991,7 @@ class _TopicViewState extends State<TopicView> {
                   });
                 });
             }),
-        Text(_rq.renderer.extractFromTree(element, ["Upvotes"], 0).toString()),
+        Text((element["Upvotes"] ?? 0).toString()),
         SizedBox(
           width: 5,
         )
@@ -2123,16 +2000,13 @@ class _TopicViewState extends State<TopicView> {
         IconButton(
             icon: Icon(
               Icons.thumb_down,
-              color: _rq.renderer.extractFromTree(element, ["MyVote"], null) ==
-                      "downvote"
+              color: (element["MyVote"] ?? null) == "downvote"
                   ? Colors.red
                   : Colors.black.withAlpha(137),
             ),
             onPressed: () {
               if (allowedOptions.contains("downvote"))
-                _rq.manage(
-                    _rq.renderer.extractFromTree(element, ["ID"], 0), 7, "4",
-                    (res) {
+                _rq.manage(element["ID"] ?? 0, 7, "4", (res) {
                   setState(() {
                     if (element["MyVote"] != "downvote") {
                       if (element["MyVote"] == "upvote") element["Upvotes"]--;
@@ -2146,15 +2020,13 @@ class _TopicViewState extends State<TopicView> {
                   });
                 });
             }),
-        Text(
-            _rq.renderer.extractFromTree(element, ["Downvotes"], 0).toString()),
+        Text((element["Downvotes"] ?? 0).toString()),
         SizedBox(
           width: 5,
         )
       ]); //点踩按钮和踩数。
 
-      if (_rq.renderer
-          .extractFromTree(element, ["IsStarHonored"], false)) //给过StarHonor的
+      if (element["IsStarHonored"] ?? false) //给过StarHonor的
         actionBarItems.add(IconButton(
           icon: Icon(
             Icons.star,
@@ -2180,11 +2052,8 @@ class _TopicViewState extends State<TopicView> {
                       actions: <Widget>[
                         FlatButton(
                           onPressed: () {
-                            _rq.manage(
-                                _rq.renderer
-                                    .extractFromTree(element, ["ID"], 0),
-                                2,
-                                "StarHonor", (res) {
+                            _rq.manage(element["ID"] ?? 0, 2, "StarHonor",
+                                (res) {
                               setState(() {
                                 element["IsStarHonored"] = true;
                                 _rq.setListItemByNameAndIndex(
@@ -2211,18 +2080,15 @@ class _TopicViewState extends State<TopicView> {
       if (allowedOptions.contains("favorite")) //收藏。
         actionBarItems.add(IconButton(
             icon: Icon(
-              _rq.renderer.extractFromTree(element, ["IsFavorite"], false)
+              (element["IsFavorite"] ?? false)
                   ? Icons.bookmark
                   : Icons.bookmark_border,
-              color:
-                  _rq.renderer.extractFromTree(element, ["IsFavorite"], false)
-                      ? Colors.lightBlue
-                      : Colors.black.withAlpha(137),
+              color: (element["IsFavorite"] ?? false)
+                  ? Colors.lightBlue
+                  : Colors.black.withAlpha(137),
             ),
             onPressed: () {
-              _rq.manage(
-                  _rq.renderer.extractFromTree(element, ["ID"], 0), 4, "4",
-                  (res) {
+              _rq.manage(element["ID"] ?? 0, 4, "4", (res) {
                 setState(() {
                   element["IsFavorite"] = !element["IsFavorite"];
                   _rq.setListItemByNameAndIndex("Comment", index, element);
@@ -2403,7 +2269,8 @@ class _TopicViewState extends State<TopicView> {
   Widget _showDiscover() {
     List<Widget> contentList = [];
 
-    if (_sequels.length > 0) { //续作。
+    if (_sequels.length > 0) {
+      //续作。
       contentList.add(Container(
         padding: EdgeInsets.all(12),
         child: _rq.renderer.pageSubtitle(
@@ -2414,7 +2281,8 @@ class _TopicViewState extends State<TopicView> {
       contentList.addAll(_rq.renderer.topicList(_sequels));
     }
 
-    if (_channelsInvolved.length > 0) { //包含这一作品的频道。
+    if (_channelsInvolved.length > 0) {
+      //包含这一作品的频道。
       contentList.add(Container(
         padding: EdgeInsets.all(12),
         child: _rq.renderer.pageSubtitle(
@@ -2426,16 +2294,16 @@ class _TopicViewState extends State<TopicView> {
         contentList.add(ListTile(
           leading: CircleAvatar(
             backgroundImage: NetworkImage(
-              _rq.renderer.extractFromTree(element, ["Background"],
-                  "https://i.loli.net/2020/04/09/NJI4nlBywjibo2X.jpg"),
+              element["Background"] ??
+                  "https://i.loli.net/2020/04/09/NJI4nlBywjibo2X.jpg",
             ),
           ),
           title: Text(
-            _rq.renderer.extractFromTree(element, ["Name"], ""),
+            element["Name"] ?? "",
             maxLines: 1,
           ),
           subtitle: Text(
-            _rq.renderer.extractFromTree(element, ["CreatorName"], ""),
+            element["CreatorName"] ?? "",
             maxLines: 1,
           ),
           onTap: () {
@@ -2447,7 +2315,8 @@ class _TopicViewState extends State<TopicView> {
       });
     }
 
-    if (_recommendTopics.length > 0) { //推荐的作品。
+    if (_recommendTopics.length > 0) {
+      //推荐的作品。
       contentList.add(Container(
         padding: EdgeInsets.all(12),
         child: _rq.renderer.pageSubtitle(
@@ -2455,11 +2324,11 @@ class _TopicViewState extends State<TopicView> {
           textColor: Theme.of(context).accentColor,
         ),
       ));
-      print(_recommendTopics);
       contentList.addAll(_rq.renderer.topicList(_recommendTopics));
     }
 
-    if (_relatedChannels.length > 0) { //相关频道。
+    if (_relatedChannels.length > 0) {
+      //相关频道。
       contentList.add(Container(
         padding: EdgeInsets.all(12),
         child: _rq.renderer.pageSubtitle(
@@ -2471,16 +2340,16 @@ class _TopicViewState extends State<TopicView> {
         contentList.add(ListTile(
           leading: CircleAvatar(
             backgroundImage: NetworkImage(
-              _rq.renderer.extractFromTree(element, ["Background"],
-                  "https://i.loli.net/2020/04/09/NJI4nlBywjibo2X.jpg"),
+              element["Background"] ??
+                  "https://i.loli.net/2020/04/09/NJI4nlBywjibo2X.jpg",
             ),
           ),
           title: Text(
-            _rq.renderer.extractFromTree(element, ["Name"], ""),
+            element["Name"] ?? "",
             maxLines: 1,
           ),
           subtitle: Text(
-            _rq.renderer.extractFromTree(element, ["CreatorName"], ""),
+            element["CreatorName"] ?? "",
             maxLines: 1,
           ),
           onTap: () {

@@ -61,7 +61,7 @@ class _TopicListState extends State<TopicList> {
         "Topics",
         (data) {
           return {
-            "List": data["TopicsArray"],
+            "List": data["TopicArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };

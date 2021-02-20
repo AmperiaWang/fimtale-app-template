@@ -65,7 +65,7 @@ class _ExaminationListState extends State<ExaminationList> {
         "Topics",
         (data) {
           return {
-            "List": data["TopicsArray"],
+            "List": data["TopicArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };

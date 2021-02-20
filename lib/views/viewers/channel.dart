@@ -71,7 +71,7 @@ class _ChannelViewState extends State<ChannelView>
             return UserList(value: {
               "PageTitle": FlutterI18n.translate(context, "subscribers") +
                   " - " +
-                  _rq.renderer.extractFromTree(_channelInfo, ["Name"], 0),
+                  (_channelInfo["Name"] ?? ""),
               "Url": "/api/v1/channel/" + _channelID.toString() + "/followers"
             });
           }));
@@ -149,8 +149,7 @@ class _ChannelViewState extends State<ChannelView>
         "Topics",
         (data) {
           _channelInfo = Map<String, dynamic>.from(data["ChannelInfo"]);
-          var folders =
-              _rq.renderer.extractFromTree(_channelInfo, ["Folders"], {});
+          var folders = _channelInfo["Folders"] ?? {};
           if (folders.isEmpty) folders = {};
           _folders = Map.from(folders);
           if (data["Collaborators"] != null)
@@ -162,7 +161,7 @@ class _ChannelViewState extends State<ChannelView>
               _collaborators
                   .any((element) => element["ID"] == _rq.provider.UserID);
           return {
-            "List": data["TopicsArray"],
+            "List": data["TopicArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -201,8 +200,7 @@ class _ChannelViewState extends State<ChannelView>
         "Comments",
         (data) {
           _channelInfo = Map<String, dynamic>.from(data["ChannelInfo"]);
-          var folders =
-              _rq.renderer.extractFromTree(_channelInfo, ["Folders"], {});
+          var folders = _channelInfo["Folders"] ?? {};
           if (folders.isEmpty) folders = {};
           _folders = Map.from(folders);
           if (data["Collaborators"] != null)
@@ -214,7 +212,7 @@ class _ChannelViewState extends State<ChannelView>
               _collaborators
                   .any((element) => element["ID"] == _rq.provider.UserID);
           return {
-            "List": data["CommentsArray"],
+            "List": data["CommentArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -252,7 +250,7 @@ class _ChannelViewState extends State<ChannelView>
         _channelInfo = Map<String, dynamic>.from(result["ChannelInfo"]);
         if (result["Collaborators"] != null)
           _collaborators = List.from(result["Collaborators"]);
-        _relatedChannels = result["ChannelsArray"];
+        _relatedChannels = result["ChannelArray"];
         _relatedChannelsLoadingStatus = 2;
       });
     } else {
@@ -331,9 +329,7 @@ class _ChannelViewState extends State<ChannelView>
   //构造整个页面。
   @override
   Widget build(BuildContext context) {
-    String background =
-            _rq.renderer.extractFromTree(_channelInfo, ["Background"], ""),
-        prefix = "";
+    String background = _channelInfo["Background"] ?? "", prefix = "";
     switch (_curIndex) {
       case 0:
         if (_curFolder.length > 0) prefix = _curFolder + " - ";
@@ -356,18 +352,16 @@ class _ChannelViewState extends State<ChannelView>
             }));
           },
           child: Chip(
-            label:
-                Text(_rq.renderer.extractFromTree(element, ["UserName"], "")),
-            avatar: _rq.renderer.userAvatar(
-                _rq.renderer.extractFromTree(element, ["UserID"], 0)),
+            label: Text(element["UserName"] ?? ""),
+            avatar: _rq.renderer.userAvatar(element["UserID"] ?? 0),
             padding: EdgeInsets.zero,
           ),
         ));
       });
     } //给协作者的小片渲染好。
 
-    List<String> allowedOptions = List<String>.from(
-        _rq.renderer.extractFromTree(_channelInfo, ["AllowedOptions"], []));
+    List<String> allowedOptions =
+        List<String>.from(_channelInfo["AllowedOptions"] ?? []);
 
     List<Widget> appBarActions = [];
     if (_curIndex == 0) {
@@ -378,8 +372,7 @@ class _ChannelViewState extends State<ChannelView>
             String curFolder = await Navigator.push(context,
                 MaterialPageRoute(builder: (context) {
               return ChannelFolder(value: {
-                "ChannelName":
-                    _rq.renderer.extractFromTree(_channelInfo, ["Name"], ""),
+                "ChannelName": _channelInfo["Name"] ?? "",
                 "Folders": Map.from(_folders),
               });
             }));
@@ -414,9 +407,7 @@ class _ChannelViewState extends State<ChannelView>
             ? Icons.favorite
             : Icons.favorite_border),
         onPressed: () {
-          _rq.manage(
-              _rq.renderer.extractFromTree(_channelInfo, ["ID"], 0), 4, "6",
-              (res) {
+          _rq.manage(_channelInfo["ID"] ?? 0, 4, "6", (res) {
             if (!mounted) return;
             setState(() {
               if (_channelInfo["IsFavorite"])
@@ -466,7 +457,8 @@ class _ChannelViewState extends State<ChannelView>
       appBarActions.add(PopupMenuButton(
         itemBuilder: (BuildContext context) => actionMenu,
         onSelected: (String action) {
-          switch (action) { //根据用户所选择的不同的action执行不同的部分。
+          switch (action) {
+            //根据用户所选择的不同的action执行不同的部分。
             case "delete":
               showDialog(
                   context: context,
@@ -583,7 +575,7 @@ class _ChannelViewState extends State<ChannelView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _rq.updateShareCardInfo().then((value) {
         if (!mounted) return;
-        setState(() {});
+        if (value) setState(() {});
       });
 
       if (_comments.containsKey(_commentID) && !_isCommentShown) {
@@ -604,12 +596,13 @@ class _ChannelViewState extends State<ChannelView>
           child: CustomScrollView(
             controller: _sc,
             slivers: <Widget>[
-              SliverAppBar( //SilverAppBar可以随着页面的滚动而慢慢变窄最后回归到正常的AppBar大小。用这个可以做一个类似于网x云音乐的界面。
+              SliverAppBar(
+                //SilverAppBar可以随着页面的滚动而慢慢变窄最后回归到正常的AppBar大小。用这个可以做一个类似于网x云音乐的界面。
                 expandedHeight: collabChips.length > 0 ? 480.0 : 430.0,
                 floating: false,
                 pinned: true,
                 title: Text(prefix +
-                    _rq.renderer.extractFromTree(_channelInfo, ["Name"],
+                    (_channelInfo["Name"] ??
                         FlutterI18n.translate(context, "channels")) +
                     (_curIndex == 0 && _topicQueryString.length > 0
                         ? "(" +
@@ -617,8 +610,10 @@ class _ChannelViewState extends State<ChannelView>
                             ":" +
                             _topicQueryString +
                             ")"
-                        : "")), //页面的标题。
-                actions: appBarActions, //页面右上角那栏。
+                        : "")),
+                //页面的标题。
+                actions: appBarActions,
+                //页面右上角那栏。
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
@@ -645,14 +640,12 @@ class _ChannelViewState extends State<ChannelView>
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: <Widget>[
                             Text(
-                              _rq.renderer
-                                  .extractFromTree(_channelInfo, ["Name"], ""),
+                              _channelInfo["Name"] ?? "",
                               textScaleFactor: 2,
                               style: TextStyle(color: Colors.white),
                             ), //频道名。
                             Text(
-                              _rq.renderer
-                                  .extractFromTree(_channelInfo, ["Intro"], ""),
+                              _channelInfo["Intro"] ?? "",
                               style: TextStyle(color: Colors.white),
                             ), //频道简介。
                             SizedBox(
@@ -678,11 +671,10 @@ class _ChannelViewState extends State<ChannelView>
                                     }));
                                   },
                                   child: Chip(
-                                    label: Text(_rq.renderer.extractFromTree(
-                                        _channelInfo, ["CreatorName"], "")),
-                                    avatar: _rq.renderer.userAvatar(_rq.renderer
-                                        .extractFromTree(
-                                            _channelInfo, ["CreatorID"], 0)),
+                                    label:
+                                        Text(_channelInfo["CreatorName"] ?? ""),
+                                    avatar: _rq.renderer.userAvatar(
+                                        _channelInfo["CreatorID"] ?? 0),
                                     padding: EdgeInsets.zero,
                                   ),
                                 ),
@@ -713,9 +705,8 @@ class _ChannelViewState extends State<ChannelView>
                                     color: Colors.blue[600],
                                   ),
                                   Text(
-                                    _rq.renderer.formatTime(_rq.renderer
-                                        .extractFromTree(
-                                            _channelInfo, ["LastTime"], 0)),
+                                    _rq.renderer.formatTime(
+                                        _channelInfo["LastTime"] ?? 0),
                                     style: TextStyle(
                                       color: Colors.white,
                                     ),
@@ -733,8 +724,7 @@ class _ChannelViewState extends State<ChannelView>
                                             "PageTitle": FlutterI18n.translate(
                                                     context, "subscribers") +
                                                 " - " +
-                                                _rq.renderer.extractFromTree(
-                                                    _channelInfo, ["Name"], ""),
+                                                (_channelInfo["Name"] ?? ""),
                                             "Url": "/api/v1/channel/" +
                                                 _channelID.toString() +
                                                 "/followers"
@@ -754,9 +744,7 @@ class _ChannelViewState extends State<ChannelView>
                                           color: Colors.red[300],
                                         ),
                                         Text(
-                                          _rq.renderer
-                                              .extractFromTree(_channelInfo,
-                                                  ["Followers"], 0)
+                                          (_channelInfo["Followers"] ?? 0)
                                               .toString(),
                                           style: TextStyle(
                                             color: Colors.white,
@@ -796,9 +784,7 @@ class _ChannelViewState extends State<ChannelView>
                                           color: Colors.deepPurple[400],
                                         ),
                                         Text(
-                                          _rq.renderer
-                                              .extractFromTree(_channelInfo,
-                                                  ["HashTopics"], 0)
+                                          (_channelInfo["HashTopics"] ?? 0)
                                               .toString(),
                                           style: TextStyle(
                                             color: Colors.white,
@@ -820,10 +806,8 @@ class _ChannelViewState extends State<ChannelView>
                                       FlatButton(
                                         onPressed: () {
                                           _rq.manage(
-                                              _rq.renderer.extractFromTree(
-                                                  _channelInfo, ["ID"], 0),
-                                              6,
-                                              "6", (res) {
+                                              (_channelInfo["ID"] ?? 0), 6, "6",
+                                              (res) {
                                             if (!mounted) return;
                                             setState(() {
                                               if (_channelInfo["MyVote"] !=
@@ -850,11 +834,8 @@ class _ChannelViewState extends State<ChannelView>
                                           children: <Widget>[
                                             Icon(
                                               Icons.thumb_up,
-                                              color: _rq.renderer
-                                                          .extractFromTree(
-                                                              _channelInfo,
-                                                              ["MyVote"],
-                                                              "") ==
+                                              color: (_channelInfo["MyVote"] ??
+                                                          "") ==
                                                       "upvote"
                                                   ? Colors.green
                                                   : Colors.white,
@@ -863,9 +844,7 @@ class _ChannelViewState extends State<ChannelView>
                                               width: 10,
                                             ),
                                             Text(
-                                              _rq.renderer
-                                                  .extractFromTree(_channelInfo,
-                                                      ["Upvotes"], 0)
+                                              (_channelInfo["Upvotes"] ?? 0)
                                                   .toString(),
                                               style: TextStyle(
                                                 color: Colors.white,
@@ -877,10 +856,8 @@ class _ChannelViewState extends State<ChannelView>
                                       FlatButton(
                                         onPressed: () {
                                           _rq.manage(
-                                              _rq.renderer.extractFromTree(
-                                                  _channelInfo, ["ID"], 0),
-                                              7,
-                                              "6", (res) {
+                                              _channelInfo["ID"] ?? 0, 7, "6",
+                                              (res) {
                                             if (!mounted) return;
                                             setState(() {
                                               if (_channelInfo["MyVote"] !=
@@ -907,11 +884,8 @@ class _ChannelViewState extends State<ChannelView>
                                           children: <Widget>[
                                             Icon(
                                               Icons.thumb_down,
-                                              color: _rq.renderer
-                                                          .extractFromTree(
-                                                              _channelInfo,
-                                                              ["MyVote"],
-                                                              "") ==
+                                              color: (_channelInfo["MyVote"] ??
+                                                          "") ==
                                                       "downvote"
                                                   ? Colors.red
                                                   : Colors.white,
@@ -920,9 +894,7 @@ class _ChannelViewState extends State<ChannelView>
                                               width: 10,
                                             ),
                                             Text(
-                                              _rq.renderer
-                                                  .extractFromTree(_channelInfo,
-                                                      ["Downvotes"], 0)
+                                              (_channelInfo["Downvotes"] ?? 0)
                                                   .toString(),
                                               style: TextStyle(
                                                 color: Colors.white,
@@ -955,16 +927,11 @@ class _ChannelViewState extends State<ChannelView>
                     Tab(
                         text: FlutterI18n.translate(context, "topics") +
                             " " +
-                            _rq.renderer
-                                .extractFromTree(
-                                    _channelInfo, ["Collections"], 0)
-                                .toString()),
+                            (_channelInfo["Collections"] ?? 0).toString()),
                     Tab(
                         text: FlutterI18n.translate(context, "comments") +
                             " " +
-                            _rq.renderer
-                                .extractFromTree(_channelInfo, ["Comments"], 0)
-                                .toString()),
+                            (_channelInfo["Comments"] ?? 0).toString()),
                     Tab(text: FlutterI18n.translate(context, "discover")),
                   ],
                 ),
@@ -994,8 +961,7 @@ class _ChannelViewState extends State<ChannelView>
     switch (_curIndex) {
       case 0: //作品界面。
         if (_curFolder.length > 0) {
-          Map curFolderInfo = Map.from(
-              _rq.renderer.extractFromTree(_folders, [_curFolder], {}));
+          Map curFolderInfo = Map.from(_folders[_curFolder] ?? {});
           contentList.add(ListTile(
             title: Text(_curFolder),
             subtitle: Text(curFolderInfo["Collections"].toString() +
@@ -1113,23 +1079,20 @@ class _ChannelViewState extends State<ChannelView>
         _rq.getListByName("Comments").forEach((element) {
           GlobalKey temp = new GlobalKey();
           int index = curIndex;
-          List<String> allowedOptions = List<String>.from(
-              _rq.renderer.extractFromTree(element, ["AllowedOptions"], []));
+          List<String> allowedOptions =
+              List<String>.from(element["AllowedOptions"] ?? []);
           List<Widget> actionBarItems = [];
           actionBarItems.addAll([
             IconButton(
                 icon: Icon(
                   Icons.thumb_up,
-                  color:
-                      _rq.renderer.extractFromTree(element, ["MyVote"], null) ==
-                              "upvote"
-                          ? Colors.green
-                          : Colors.black.withAlpha(137),
+                  color: (element["MyVote"] ?? null) == "upvote"
+                      ? Colors.green
+                      : Colors.black.withAlpha(137),
                 ),
                 onPressed: () {
                   if (allowedOptions.contains("upvote"))
-                    _rq.manage(_rq.renderer.extractFromTree(element, ["ID"], 0),
-                        6, "7", (res) {
+                    _rq.manage(element["ID"] ?? 0, 6, "7", (res) {
                       if (!mounted) return;
                       setState(() {
                         if (element["MyVote"] != "upvote") {
@@ -1146,9 +1109,7 @@ class _ChannelViewState extends State<ChannelView>
                       });
                     });
                 }),
-            Text(_rq.renderer
-                .extractFromTree(element, ["Upvotes"], 0)
-                .toString()),
+            Text((element["Upvotes"] ?? 0).toString()),
             SizedBox(
               width: 5,
             )
@@ -1157,16 +1118,13 @@ class _ChannelViewState extends State<ChannelView>
             IconButton(
                 icon: Icon(
                   Icons.thumb_down,
-                  color:
-                      _rq.renderer.extractFromTree(element, ["MyVote"], null) ==
-                              "downvote"
-                          ? Colors.red
-                          : Colors.black.withAlpha(137),
+                  color: (element["MyVote"] ?? null) == "downvote"
+                      ? Colors.red
+                      : Colors.black.withAlpha(137),
                 ),
                 onPressed: () {
                   if (allowedOptions.contains("downvote"))
-                    _rq.manage(_rq.renderer.extractFromTree(element, ["ID"], 0),
-                        7, "7", (res) {
+                    _rq.manage(element["ID"] ?? 0, 7, "7", (res) {
                       if (!mounted) return;
                       setState(() {
                         if (element["MyVote"] != "downvote") {
@@ -1183,9 +1141,7 @@ class _ChannelViewState extends State<ChannelView>
                       });
                     });
                 }),
-            Text(_rq.renderer
-                .extractFromTree(element, ["Downvotes"], 0)
-                .toString()),
+            Text((element["Downvotes"] ?? 0).toString()),
             SizedBox(
               width: 5,
             )
@@ -1194,18 +1150,15 @@ class _ChannelViewState extends State<ChannelView>
           if (allowedOptions.contains("favorite"))
             actionBarItems.add(IconButton(
                 icon: Icon(
-                  _rq.renderer.extractFromTree(element, ["IsFavorite"], false)
+                  (element["IsFavorite"] ?? false)
                       ? Icons.bookmark
                       : Icons.bookmark_border,
-                  color: _rq.renderer
-                          .extractFromTree(element, ["IsFavorite"], false)
+                  color: (element["IsFavorite"] ?? false)
                       ? Colors.lightBlue
                       : Colors.black.withAlpha(137),
                 ),
                 onPressed: () {
-                  _rq.manage(
-                      _rq.renderer.extractFromTree(element, ["ID"], 0), 4, "4",
-                      (res) {
+                  _rq.manage(element["ID"] ?? 0, 4, "4", (res) {
                     if (!mounted) return;
                     setState(() {
                       element["IsFavorite"] = !element["IsFavorite"];
@@ -1396,11 +1349,11 @@ class _ChannelViewState extends State<ChannelView>
                   : AssetImage("assets/images/channel_cover_square.jpg"),
             ),
             title: Text(
-              _rq.renderer.extractFromTree(element, ["Name"], ""),
+              element["Name"] ?? "",
               maxLines: 1,
             ),
             subtitle: Text(
-              _rq.renderer.extractFromTree(element, ["CreatorName"], ""),
+              element["CreatorName"] ?? "",
               maxLines: 1,
             ),
           ));

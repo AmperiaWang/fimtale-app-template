@@ -65,7 +65,7 @@ class _TagListState extends State<TagList> {
         "Tags",
         (data) {
           return {
-            "List": data["TagsArray"],
+            "List": data["TagArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };

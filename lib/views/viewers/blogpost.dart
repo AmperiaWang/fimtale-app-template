@@ -1,16 +1,17 @@
 import 'dart:convert';
 
+import 'package:fimtale/elements/ftemoji.dart';
 import 'package:fimtale/elements/share_card.dart';
+import 'package:fimtale/elements/spoiler.dart';
 import 'package:fimtale/views/custom/editor.dart';
 import 'package:fimtale/views/lists/blogpost.dart';
 import 'package:fimtale/views/viewers/topic.dart';
 import 'package:fimtale/views/viewers/user.dart';
-import 'package:fimtale/elements/ftemoji.dart';
-import 'package:fimtale/elements/spoiler.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_html/html_parser.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:markdown/markdown.dart' show markdownToHtml;
-import 'package:markdown_widget/markdown_widget.dart';
 import 'package:fimtale/library/request_handler.dart';
 import 'package:fimtale/views/viewers/image_viewer.dart';
 import 'package:sp_util/sp_util.dart';
@@ -114,7 +115,7 @@ class _BlogpostViewState extends State<BlogpostView> {
           _nextID = result["Next"]["ID"];
         }
         if (commentID <= 0) {
-          _rq.setListByName("Comments", result["CommentsArray"]);
+          _rq.setListByName("Comments", result["CommentArray"]);
           _rq.setCurPage("Comments", result["Page"]);
           _rq.setTotalPage("Comments", result["TotalPage"]);
           _rq.setIsLoading("Comments", false);
@@ -164,7 +165,7 @@ class _BlogpostViewState extends State<BlogpostView> {
         "Comments",
         (data) {
           return {
-            "List": data["CommentsArray"],
+            "List": data["CommentArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -244,10 +245,10 @@ class _BlogpostViewState extends State<BlogpostView> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> allowedOptions = List<String>.from(_rq.renderer
-            .extractFromTree(_blogpostInfo, ["AllowedOptions"], [])),
-        authorAllowedOptions = List<String>.from(
-            _rq.renderer.extractFromTree(_author, ["AllowedOptions"], []));
+    List<String> allowedOptions =
+            List<String>.from(_blogpostInfo["AllowedOptions"] ?? []),
+        authorAllowedOptions =
+            List<String>.from(_author["AllowedOptions"] ?? []);
 
     List<PopupMenuItem<String>> actionMenu = [];
     if (allowedOptions.contains("edit"))
@@ -329,7 +330,7 @@ class _BlogpostViewState extends State<BlogpostView> {
         },
       ));
 
-    String userBg = _rq.renderer.extractFromTree(_author, ["Background"], "");
+    String userBg = _author["Background"] ?? "";
     if (userBg.length == 0)
       userBg = "https://fimtale.com/static/img/userbg.jpg";
     pageBody.add(Container(
@@ -409,21 +410,18 @@ class _BlogpostViewState extends State<BlogpostView> {
                     onTap: () {
                       Navigator.push(context,
                           MaterialPageRoute(builder: (_context) {
-                        return UserView(value: {
-                          "UserName": _rq.renderer
-                              .extractFromTree(_author, ["UserName"], "")
-                        });
+                        return UserView(
+                            value: {"UserName": _author["UserName"] ?? ""});
                       }));
                     },
-                    leading: _rq.renderer.userAvatar(
-                        _rq.renderer.extractFromTree(_author, ["ID"], 0)),
+                    leading: _rq.renderer.userAvatar(_author["ID"] ?? 0),
                     title: Text(
-                      _rq.renderer.extractFromTree(_author, ["UserName"], ""),
+                      _author["UserName"] ?? "",
                       textScaleFactor: 1.25,
                       maxLines: 1,
                     ),
                     subtitle: Text(
-                      _rq.renderer.extractFromTree(_author, ["UserIntro"], ""),
+                      _author["UserIntro"] ?? "",
                       maxLines: 1,
                     ),
                     trailing: authorAllowedOptions.contains("favorite")
@@ -432,11 +430,7 @@ class _BlogpostViewState extends State<BlogpostView> {
                                 ? Icons.favorite
                                 : Icons.favorite_border),
                             onPressed: () {
-                              _rq.manage(
-                                  _rq.renderer
-                                      .extractFromTree(_author, ["ID"], 0),
-                                  4,
-                                  "3", (res) {
+                              _rq.manage(_author["ID"] ?? 0, 4, "3", (res) {
                                 setState(() {
                                   if (_author["IsFavorite"])
                                     _author["Followers"]--;
@@ -455,15 +449,13 @@ class _BlogpostViewState extends State<BlogpostView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        _rq.renderer
-                            .extractFromTree(_blogpostInfo, ["Title"], ""),
+                        _blogpostInfo["Title"] ?? "",
                         textScaleFactor: 2.4,
                       ),
                       Wrap(
                         spacing: 8,
                         children: _rq.renderer.tags2Chips(
-                          List.from(_rq.renderer
-                              .extractFromTree(_blogpostInfo, ["Tags"], [])),
+                          List.from(_blogpostInfo["Tags"] ?? []),
                           colored: false,
                           onTap: (tag) {
                             Navigator.push(context,
@@ -476,10 +468,8 @@ class _BlogpostViewState extends State<BlogpostView> {
                       Wrap(
                         children: <Widget>[
                           Chip(
-                            label: Text(_rq.renderer
-                                .extractFromTree(
-                                    _blogpostInfo, ["WordCount"], 0)
-                                .toString()),
+                            label: Text(
+                                _blogpostInfo["WordCount"] ?? 0.toString()),
                             labelStyle: TextStyle(
                               color: Theme.of(context).disabledColor,
                             ),
@@ -490,9 +480,8 @@ class _BlogpostViewState extends State<BlogpostView> {
                             backgroundColor: Colors.transparent,
                           ),
                           Chip(
-                            label: Text(_rq.renderer.formatTime(_rq.renderer
-                                .extractFromTree(
-                                    _blogpostInfo, ["DateCreated"], 0))),
+                            label: Text(_rq.renderer
+                                .formatTime(_blogpostInfo["DateCreated"] ?? 0)),
                             labelStyle: TextStyle(
                               color: Theme.of(context).disabledColor,
                             ),
@@ -558,18 +547,15 @@ class _BlogpostViewState extends State<BlogpostView> {
     if (allowedOptions.contains("favorite"))
       bottomBarItems.add(IconButton(
         icon: Icon(
-          _rq.renderer.extractFromTree(_blogpostInfo, ["IsFavorite"], false)
+          (_blogpostInfo["IsFavorite"] ?? false)
               ? Icons.bookmark
               : Icons.bookmark_border,
-          color:
-              _rq.renderer.extractFromTree(_blogpostInfo, ["IsFavorite"], false)
-                  ? Colors.lightBlue
-                  : Colors.black.withAlpha(137),
+          color: (_blogpostInfo["IsFavorite"] ?? false)
+              ? Colors.lightBlue
+              : Colors.black.withAlpha(137),
         ),
         onPressed: () {
-          _rq.manage(
-              _rq.renderer.extractFromTree(_blogpostInfo, ["ID"], 0), 4, "5",
-              (res) {
+          _rq.manage(_blogpostInfo["ID"] ?? 0, 4, "5", (res) {
             setState(() {
               _blogpostInfo["IsFavorite"] = !_blogpostInfo["IsFavorite"];
               if (_blogpostInfo["IsFavorite"]) {
@@ -604,7 +590,7 @@ class _BlogpostViewState extends State<BlogpostView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _rq.updateShareCardInfo().then((value) {
         if (!mounted) return;
-        setState(() {});
+        if (value) setState(() {});
       });
 
       if (_comments.containsKey(_commentID) && !_isCommentShown) {
@@ -664,108 +650,91 @@ class _BlogpostViewState extends State<BlogpostView> {
 
   //渲染博文内容。
   Widget _showBlogpostContent() {
+    var _context = context;
     return GestureDetector(
-      child: Column(
+      child: Html(
         key: _passage,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.max,
-        children: MarkdownGenerator(
-          data: _rq.renderer.emojiUtil(
-              _rq.renderer.extractFromTree(_blogpostInfo, ["Content"], "")),
-          styleConfig: StyleConfig(
-            imgBuilder: (String url, attributes) {
-              int index = _imageUrls.indexOf(url);
-              if (index < 0) {
-                index = _imageUrls.length;
-                _imageUrls.add(url);
-              }
-              return GestureDetector(
-                onTap: () {
-                  _openImageViewer(index);
-                },
-                child: Image.network(url),
+        data: _rq.renderer.emojiUtil(_blogpostInfo["Content"] ?? ""),
+        onLinkTap: (url) {
+          _rq.launchURL(url);
+        },
+        customRender: {
+          "img": (RenderContext context, child, attributes, element) {
+            int index = _imageUrls.indexOf(attributes['src']);
+            if (index < 0) {
+              index = _imageUrls.length;
+              _imageUrls.add(attributes['src']);
+            }
+            return GestureDetector(
+              onTap: () {
+                _openImageViewer(index);
+              },
+              child: Image.network(attributes['src']),
+            );
+          },
+          "collapse": (RenderContext context, child, attributes, element) {
+            return ExpansionTile(
+              title: new Text(
+                  FlutterI18n.translate(_context, "something_is_collapsed")),
+              children: <Widget>[Text(element.text)],
+            );
+          },
+          "reply": (RenderContext context, child, attributes, element) {
+            return ExpansionTile(
+              title: new Text(
+                  FlutterI18n.translate(_context, "something_is_collapsed")),
+              children: <Widget>[Text(element.text)],
+            );
+          },
+          "login": (RenderContext context, child, attributes, element) {
+            if (attributes["available"] == "true") {
+              return Card(
+                child: Container(
+                  padding: EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        FlutterI18n.translate(
+                            _context, "content_visible_when_login"),
+                        textScaleFactor: 1.25,
+                      ),
+                      Text(element.text),
+                    ],
+                  ),
+                ),
               );
-            },
-            titleConfig: TitleConfig(),
-            pConfig: PConfig(
-              onLinkTap: (url) {
-                _rq.launchURL(url);
-              },
-              custom: (node) {
-                switch (node.tag) {
-                  case "collapse":
-                  case "reply":
-                    return ExpansionTile(
-                      title: new Text(FlutterI18n.translate(
-                          context, "something_is_collapsed")),
-                      children: <Widget>[Text(node.attributes["content"])],
-                    );
-                    break;
-                  case "login":
-                    if (node.attributes["available"] == "true") {
-                      return Card(
-                        child: Container(
-                          padding: EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              Text(
-                                FlutterI18n.translate(
-                                    context, "content_visible_when_login"),
-                                textScaleFactor: 1.25,
-                              ),
-                              Text(node.attributes["content"]),
-                            ],
-                          ),
-                        ),
-                      );
-                    } else {
-                      return Card(
-                        child: Container(
-                          padding: EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              Text(
-                                FlutterI18n.translate(context, "login_to_read"),
-                                textScaleFactor: 1.25,
-                              ),
-                              Text(node.attributes["content"]),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-                    break;
-                  case "share":
-                    _rq.shareLinkBuffer.add("/" +
-                        _rq.getTypeCode(node.attributes["type"]) +
-                        "/" +
-                        node.attributes["code"]);
-                    return ShareCard(
-                        _rq, node.attributes["type"], node.attributes["code"]);
-                    break;
-                  case "spoiler":
-                    return Spoiler(content: node.attributes["content"]);
-                    break;
-                  case "ftemoji":
-                    return FTEmoji(node.attributes["code"]);
-                    break;
-                  default:
-                    return SizedBox(
-                      width: 0,
-                      height: 0,
-                    );
-                }
-              },
-            ),
-            blockQuoteConfig: BlockQuoteConfig(),
-            tableConfig: TableConfig(),
-            preConfig: PreConfig(),
-            olConfig: OlConfig(),
-            ulConfig: UlConfig(),
-          ),
-        ).widgets,
+            } else {
+              return Card(
+                child: Container(
+                  padding: EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        FlutterI18n.translate(_context, "login_to_read"),
+                        textScaleFactor: 1.25,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+          },
+          "share": (RenderContext context, child, attributes, element) {
+            _rq.shareLinkBuffer.add("/" +
+                _rq.getTypeCode(attributes["type"]) +
+                "/" +
+                attributes["code"]);
+            return ShareCard(_rq, attributes["type"], attributes["code"]);
+          },
+          "spoiler": (RenderContext context, child, attributes, element) {
+            return Spoiler(content: element.text);
+          },
+          "ftemoji": (RenderContext context, child, attributes, element) {
+            return FTEmoji(attributes["code"]);
+          },
+        },
       ),
     );
   }
@@ -881,23 +850,20 @@ class _BlogpostViewState extends State<BlogpostView> {
     _rq.getListByName("Comments").forEach((element) {
       GlobalKey temp = new GlobalKey();
       int index = curIndex;
-      List<String> allowedOptions = List<String>.from(
-          _rq.renderer.extractFromTree(element, ["AllowedOptions"], []));
+      List<String> allowedOptions =
+          List<String>.from(element["AllowedOptions"] ?? []);
       List<Widget> actionBarItems = [];
       actionBarItems.addAll([
         IconButton(
             icon: Icon(
               Icons.thumb_up,
-              color: _rq.renderer.extractFromTree(element, ["MyVote"], null) ==
-                      "upvote"
+              color: (element["MyVote"] ?? null) == "upvote"
                   ? Colors.green
                   : Colors.black.withAlpha(137),
             ),
             onPressed: () {
               if (allowedOptions.contains("upvote"))
-                _rq.manage(
-                    _rq.renderer.extractFromTree(element, ["ID"], 0), 6, "7",
-                    (res) {
+                _rq.manage(element["ID"] ?? 0, 6, "7", (res) {
                   if (!mounted) return;
                   setState(() {
                     if (element["MyVote"] != "upvote") {
@@ -913,7 +879,7 @@ class _BlogpostViewState extends State<BlogpostView> {
                   });
                 });
             }),
-        Text(_rq.renderer.extractFromTree(element, ["Upvotes"], 0).toString()),
+        Text((element["Upvotes"] ?? 0).toString()),
         SizedBox(
           width: 5,
         )
@@ -922,16 +888,13 @@ class _BlogpostViewState extends State<BlogpostView> {
         IconButton(
             icon: Icon(
               Icons.thumb_down,
-              color: _rq.renderer.extractFromTree(element, ["MyVote"], null) ==
-                      "downvote"
+              color: (element["MyVote"] ?? null) == "downvote"
                   ? Colors.red
                   : Colors.black.withAlpha(137),
             ),
             onPressed: () {
               if (allowedOptions.contains("downvote"))
-                _rq.manage(
-                    _rq.renderer.extractFromTree(element, ["ID"], 0), 7, "7",
-                    (res) {
+                _rq.manage(element["ID"] ?? 0, 7, "7", (res) {
                   setState(() {
                     if (element["MyVote"] != "downvote") {
                       if (element["MyVote"] == "upvote") element["Upvotes"]--;
@@ -945,8 +908,7 @@ class _BlogpostViewState extends State<BlogpostView> {
                   });
                 });
             }),
-        Text(
-            _rq.renderer.extractFromTree(element, ["Downvotes"], 0).toString()),
+        Text((element["Downvotes"] ?? 0).toString()),
         SizedBox(
           width: 5,
         )
@@ -955,18 +917,15 @@ class _BlogpostViewState extends State<BlogpostView> {
       if (allowedOptions.contains("favorite"))
         actionBarItems.add(IconButton(
             icon: Icon(
-              _rq.renderer.extractFromTree(element, ["IsFavorite"], false)
+              (element["IsFavorite"] ?? false)
                   ? Icons.bookmark
                   : Icons.bookmark_border,
-              color:
-                  _rq.renderer.extractFromTree(element, ["IsFavorite"], false)
-                      ? Colors.lightBlue
-                      : Colors.black.withAlpha(137),
+              color: (element["IsFavorite"] ?? false)
+                  ? Colors.lightBlue
+                  : Colors.black.withAlpha(137),
             ),
             onPressed: () {
-              _rq.manage(
-                  _rq.renderer.extractFromTree(element, ["ID"], 0), 4, "4",
-                  (res) {
+              _rq.manage(element["ID"] ?? 0, 4, "4", (res) {
                 setState(() {
                   element["IsFavorite"] = !element["IsFavorite"];
                   _rq.setListItemByNameAndIndex("Comment", index, element);

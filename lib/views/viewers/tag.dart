@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
-import 'package:markdown_widget/config/style_config.dart';
-import 'package:markdown_widget/markdown_generator.dart';
+import 'package:markdown/markdown.dart' show markdownToHtml;
 import 'package:provider/provider.dart';
 import 'package:fimtale/library/app_provider.dart';
 import 'package:fimtale/views/lists/search_page.dart';
@@ -76,7 +76,7 @@ class _TagViewState extends State<TagView> {
         (data) {
           _tagInfo = Map<String, dynamic>.from(data["TagInfo"]);
           return {
-            "List": data["TopicsArray"],
+            "List": data["TopicArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -107,8 +107,8 @@ class _TagViewState extends State<TagView> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> allowedOptions = List<String>.from(
-        _rq.renderer.extractFromTree(_tagInfo, ["AllowedOptions"], []));
+    List<String> allowedOptions =
+        List<String>.from(_tagInfo["AllowedOptions"] ?? []);
     List<Widget> appBarActions = [
       IconButton(
         icon: Icon(Icons.search),
@@ -135,8 +135,7 @@ class _TagViewState extends State<TagView> {
         icon: Icon(
             _tagInfo["IsFavorite"] ? Icons.favorite : Icons.favorite_border),
         onPressed: () {
-          _rq.manage(_rq.renderer.extractFromTree(_tagInfo, ["ID"], 0), 4, "2",
-              (res) {
+          _rq.manage(_tagInfo["ID"] ?? 0, 4, "2", (res) {
             setState(() {
               if (_tagInfo["IsFavorite"])
                 _tagInfo["Followers"]--;
@@ -147,6 +146,8 @@ class _TagViewState extends State<TagView> {
           });
         },
       ));
+
+    var _context = context;
 
     return new Scaffold(
       body: Container(
@@ -176,13 +177,10 @@ class _TagViewState extends State<TagView> {
                         "assets/images/tag_background.jpg",
                         fit: BoxFit.cover,
                       ),
-                      _rq.renderer
-                              .extractFromTree(_tagInfo, ["IconExists"], false)
+                      (_tagInfo["IconExists"] ?? false)
                           ? Image.network(
                               "https://fimtale.com/upload/tag/middle/" +
-                                  _rq.renderer
-                                      .extractFromTree(_tagInfo, ["ID"], 0)
-                                      .toString() +
+                                  (_tagInfo["ID"] ?? 0).toString() +
                                   ".png",
                               fit: BoxFit.cover,
                             )
@@ -217,10 +215,7 @@ class _TagViewState extends State<TagView> {
                                   color: Colors.lightBlue,
                                 ),
                                 Text(
-                                  _rq.renderer
-                                      .extractFromTree(
-                                          _tagInfo, ["TotalTopics"], 0)
-                                      .toString(),
+                                  (_tagInfo["TotalTopics"] ?? 0).toString(),
                                   style: TextStyle(
                                     color: Colors.white,
                                   ),
@@ -233,9 +228,8 @@ class _TagViewState extends State<TagView> {
                                   color: Colors.blue[600],
                                 ),
                                 Text(
-                                  _rq.renderer.formatTime(_rq.renderer
-                                      .extractFromTree(
-                                          _tagInfo, ["LastTime"], 0)),
+                                  _rq.renderer
+                                      .formatTime(_tagInfo["LastTime"] ?? 0),
                                   style: TextStyle(
                                     color: Colors.white,
                                   ),
@@ -248,10 +242,7 @@ class _TagViewState extends State<TagView> {
                                   color: Colors.red[300],
                                 ),
                                 Text(
-                                  _rq.renderer
-                                      .extractFromTree(
-                                          _tagInfo, ["Followers"], 0)
-                                      .toString(),
+                                  (_tagInfo["Followers"] ?? 0).toString(),
                                   style: TextStyle(
                                     color: Colors.white,
                                   ),
@@ -270,30 +261,15 @@ class _TagViewState extends State<TagView> {
                 margin: EdgeInsets.all(16),
                 child: Container(
                   padding: EdgeInsets.all(12),
-                  child: Column(
-                    children: MarkdownGenerator(
-                      data: _tagInfo["Intro"] != null &&
-                              _tagInfo["Intro"].length > 0
-                          ? _tagInfo["Intro"]
-                          : FlutterI18n.translate(context, "no_desc"),
-                      //博文简介（渲染过emoji后）
-                      styleConfig: StyleConfig(
-                        titleConfig: TitleConfig(),
-                        pConfig: PConfig(
-                          onLinkTap: (url) {
-                            _rq.launchURL(url);
-                          },
-                        ),
-                        blockQuoteConfig: BlockQuoteConfig(),
-                        tableConfig: TableConfig(),
-                        preConfig: PreConfig(),
-                        ulConfig: UlConfig(),
-                        olConfig: OlConfig(),
-                        imgBuilder: (String url, attributes) {
-                          return Image.network(url);
-                        },
-                      ),
-                    ).widgets, //从用户端返回的内容为markdown格式，因此需要用MarkDownGenerator类来解析文本，使之成为flutter的组件。
+                  child: Html(
+                    data: _rq.renderer.emojiUtil(markdownToHtml(
+                        _tagInfo["Intro"] != null &&
+                                _tagInfo["Intro"].length > 0
+                            ? _tagInfo["Intro"]
+                            : FlutterI18n.translate(context, "no_desc"))),
+                    onLinkTap: (url) {
+                      _rq.launchURL(url);
+                    },
                   ),
                 ),
               )),

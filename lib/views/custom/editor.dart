@@ -88,7 +88,7 @@ class _EditorState extends State<Editor> {
         await _rq.request("/api/v1/json/getMainTags?interface=edit");
 
     if (mainTagsRes["Status"] == 1) {
-      _mainTags = List.from(mainTagsRes["TagsArray"]);
+      _mainTags = List.from(mainTagsRes["TagArray"]);
       print(_mainTags);
     } else {
       print(mainTagsRes["ErrorMessage"]);
@@ -102,7 +102,7 @@ class _EditorState extends State<Editor> {
     var tagsRes = await _rq.request("/api/v1/json/getTags");
 
     if (tagsRes["Status"] == 1) {
-      _suggestedTags = List.from(tagsRes["TagsArray"]);
+      _suggestedTags = List.from(tagsRes["TagArray"]);
     } else {
       print(tagsRes["ErrorMessage"]);
       Toast.show(
@@ -430,8 +430,7 @@ class _EditorState extends State<Editor> {
     ]; //编辑器
 
     if (!(_type == "topic" &&
-        ((_action == "new" && _mainID > 0) ||
-            !_rq.renderer.extractFromTree(_info, ["IsChapter"], true))))
+        ((_action == "new" && _mainID > 0) || !(_info["IsChapter"] ?? true))))
       pages.add(ListView(
         children: _showSecondPage(),
       )); //第二页。
@@ -461,35 +460,39 @@ class _EditorState extends State<Editor> {
                       },
                     ),
                     ListTile(
-                      title:
-                      Text(FlutterI18n.translate(context, "insert_login_shortcode")),
+                      title: Text(FlutterI18n.translate(
+                          context, "insert_login_shortcode")),
                       onTap: () {
                         _controller.document.insert(
-                            _controller.selection.extent.offset, "[login][/login]");
+                            _controller.selection.extent.offset,
+                            "[login][/login]");
                       },
                     ),
                     ListTile(
-                      title:
-                      Text(FlutterI18n.translate(context, "insert_collapse_shortcode")),
+                      title: Text(FlutterI18n.translate(
+                          context, "insert_collapse_shortcode")),
                       onTap: () {
                         _controller.document.insert(
-                            _controller.selection.extent.offset, "[collapse][/collapse]");
+                            _controller.selection.extent.offset,
+                            "[collapse][/collapse]");
                       },
                     ),
                     ListTile(
-                      title:
-                      Text(FlutterI18n.translate(context, "insert_markdown_shortcode")),
+                      title: Text(FlutterI18n.translate(
+                          context, "insert_markdown_shortcode")),
                       onTap: () {
                         _controller.document.insert(
-                            _controller.selection.extent.offset, "[markdown][/markdown]");
+                            _controller.selection.extent.offset,
+                            "[markdown][/markdown]");
                       },
                     ),
                     ListTile(
-                      title:
-                      Text(FlutterI18n.translate(context, "insert_spoiler_shortcode")),
+                      title: Text(FlutterI18n.translate(
+                          context, "insert_spoiler_shortcode")),
                       onTap: () {
                         _controller.document.insert(
-                            _controller.selection.extent.offset, "[spoiler][/spoiler]");
+                            _controller.selection.extent.offset,
+                            "[spoiler][/spoiler]");
                       },
                     )
                   ],

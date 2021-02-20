@@ -65,7 +65,7 @@ class _ChannelListState extends State<ChannelList> {
         "Channels",
         (data) {
           return {
-            "List": data["ChannelsArray"],
+            "List": data["ChannelArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };

@@ -96,10 +96,10 @@ class _LaunchingPageState extends State<LaunchingPage> {
     Map tags, badges;
     int status = tempResult["Status"];
     if (status == 1 &&
-        tempResult["TagsArray"] != null &&
-        tempResult["BadgesArray"] != null) {
-      tags = Map.from(tempResult["TagsArray"]);
-      badges = Map.from(tempResult["BadgesArray"]);
+        tempResult["TagArray"] != null &&
+        tempResult["BadgeArray"] != null) {
+      tags = Map.from(tempResult["TagArray"]);
+      badges = Map.from(tempResult["BadgeArray"]);
       SpUtil.putString("main_tags", jsonEncode(tags));
       SpUtil.putString("badges", jsonEncode(badges));
     } else {

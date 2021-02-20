@@ -65,7 +65,7 @@ class _BlogpostListState extends State<BlogpostList> {
         "Blogposts",
         (data) {
           return {
-            "List": data["BlogpostsArray"],
+            "List": data["BlogpostArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };

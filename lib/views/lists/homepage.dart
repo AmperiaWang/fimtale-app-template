@@ -84,15 +84,15 @@ class _HomePageState extends State<HomePage>
     });
     _sc2.addListener(() {
       if (_sc2.position.pixels >= _sc2.position.maxScrollExtent - 400)
-        _justUpdateTopicsArray(true);
+        _justUpdateTopicArray(true);
     });
     _sc3.addListener(() {
       if (_sc3.position.pixels >= _sc3.position.maxScrollExtent - 400)
-        _justUpdateTopicsArray(false);
+        _justUpdateTopicArray(false);
     });
     _sc4.addListener(() {
       if (_sc4.position.pixels >= _sc4.position.maxScrollExtent - 400)
-        _justUpdateForumPostsArray();
+        _justUpdateForumPostArray();
     });
     _sc5.addListener(() {
       if (_sc5.position.pixels >= _sc5.position.maxScrollExtent - 400)
@@ -176,11 +176,11 @@ class _HomePageState extends State<HomePage>
 
   //从新消息数目中获取到总的新消息数（评论+提到+消息+举报+互动），并返回。
   int _getNotificationNum(Map<String, dynamic> numMap) {
-    return _rq.renderer.extractFromTree(numMap, ["NewReply"], 0) +
-        _rq.renderer.extractFromTree(numMap, ["NewMention"], 0) +
-        _rq.renderer.extractFromTree(numMap, ["NewMessage"], 0) +
-        _rq.renderer.extractFromTree(numMap, ["NewReport"], 0) +
-        _rq.renderer.extractFromTree(numMap, ["NewInteraction"], 0);
+    return (numMap["NewReply"] ?? 0) +
+        (numMap["NewMention"] ?? 0) +
+        (numMap["NewMessage"] ?? 0) +
+        (numMap["NewReport"] ?? 0) +
+        (numMap["NewInteraction"] ?? 0);
   }
 
   //清除所有消息数。
@@ -220,13 +220,13 @@ class _HomePageState extends State<HomePage>
 
     if (result["Status"] == 1) {
       setState(() {
-        _recommendArr = result["EditorRecommendTopicsArray"];
-        _announcementArr = result["AnnouncementsArray"];
-        _rq.setListByName("NewlyPost", result["NewlyPostTopicsArray"]);
+        _recommendArr = result["EditorRecommendTopicArray"];
+        _announcementArr = result["AnnouncementArray"];
+        _rq.setListByName("NewlyPost", result["NewlyPostTopicArray"]);
         _rq.setCurPage("NewlyPost", 1);
         _rq.setTotalPage("NewlyPost", 2);
         _rq.setIsLoading("NewlyPost", false);
-        _rq.setListByName("NewlyUpdate", result["NewlyUpdateTopicsArray"]);
+        _rq.setListByName("NewlyUpdate", result["NewlyUpdateTopicArray"]);
         _rq.setCurPage("NewlyUpdate", 1);
         _rq.setTotalPage("NewlyUpdate", 2);
         _rq.setIsLoading("NewlyUpdate", false);
@@ -259,14 +259,14 @@ class _HomePageState extends State<HomePage>
 
     if (result["Status"] == 1) {
       setState(() {
-        _hotBlogPostsArr.addAll(result["HotBlogPostsArray"]);
-        _hotChannelsArr.addAll(result["HotChannelsArray"]);
+        _hotBlogPostsArr.addAll(result["HotBlogPostArray"]);
+        _hotChannelsArr.addAll(result["HotChannelArray"]);
         _newUpdatesNum = result["NewUpdatesNum"];
-        _rq.setListByName("ForumPosts", result["ForumPostsArray"]);
+        _rq.setListByName("ForumPosts", result["ForumPostArray"]);
         _rq.setCurPage("ForumPosts", 1);
         _rq.setTotalPage("ForumPosts", 2);
         _rq.setIsLoading("ForumPosts", false);
-        _rq.setListByName("RecommendTopics", result["RecommendTopicsArray"]);
+        _rq.setListByName("RecommendTopics", result["RecommendTopicArray"]);
         _rq.setIsLoading("RecommendTopics", false);
         _isLoading2 = false;
         _isRefreshing2 = false;
@@ -283,7 +283,7 @@ class _HomePageState extends State<HomePage>
   }
 
   //只更新作品栏（有一个isNewlyPost参数，为true则更新“近日热门”，否则更新“最近更新”）。
-  _justUpdateTopicsArray(bool isNewlyPost) async {
+  _justUpdateTopicArray(bool isNewlyPost) async {
     if (_isLoading1) return;
     var listName = isNewlyPost ? "NewlyPost" : "NewlyUpdate",
         params = {"sortby": isNewlyPost ? "default" : "update"};
@@ -292,7 +292,7 @@ class _HomePageState extends State<HomePage>
         listName,
         (data) {
           return {
-            "List": data["TopicsArray"],
+            "List": data["TopicArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -313,12 +313,12 @@ class _HomePageState extends State<HomePage>
   }
 
   //只更新帖子区。
-  _justUpdateForumPostsArray() async {
+  _justUpdateForumPostArray() async {
     if (_isLoading2) return;
     _rq.updateListByName("/api/v1/tag/%E5%B8%96%E5%AD%90", "ForumPosts",
         (data) {
       return {
-        "List": data["TopicsArray"],
+        "List": data["TopicArray"],
         "CurPage": data["Page"],
         "TotalPage": data["TotalPage"]
       };
@@ -340,7 +340,7 @@ class _HomePageState extends State<HomePage>
     _rq.updateListByName("/api/v1/json/refreshRecommendList", "RecommendTopics",
         (data) {
       return {
-        "List": data["RecommendTopicsArray"],
+        "List": data["RecommendTopicArray"],
         "CurPage": 0,
         "TotalPage": 1
       };
@@ -360,7 +360,7 @@ class _HomePageState extends State<HomePage>
   _getUpdates() async {
     _rq.updateListByName("/api/v1/notifications/updates", "Updates", (data) {
       return {
-        "List": data["UpdatesArray"],
+        "List": data["UpdateArray"],
         "CurPage": data["Page"],
         "TotalPage": data["TotalPage"]
       };
@@ -426,18 +426,13 @@ class _HomePageState extends State<HomePage>
                                             EdgeInsets.fromLTRB(4, 12, 4, 0),
                                         alignment: Alignment.centerRight,
                                         child: _rq.renderer.mainTagSet(
-                                            _rq.renderer.extractFromTree(
-                                                i, ["Tags"], {}),
-                                            false,
-                                            ""),
+                                            i["Tags"] ?? {}, false, ""),
                                       ),
                                       ListTile(
-                                        leading: _rq.renderer.userAvatar(
-                                            _rq.renderer.extractFromTree(
-                                                i, ["AuthorID"], 0)),
+                                        leading: _rq.renderer
+                                            .userAvatar(i["AuthorID"] ?? 0),
                                         title: Text(
-                                          _rq.renderer.extractFromTree(
-                                              i, ["Title"], ""),
+                                          i["Title"] ?? "",
                                           textScaleFactor: 1.2,
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
@@ -452,8 +447,7 @@ class _HomePageState extends State<HomePage>
                                           ),
                                         ),
                                         subtitle: Text(
-                                          _rq.renderer.extractFromTree(
-                                              i, ["AuthorName"], ""),
+                                          i["AuthorName"] ?? "",
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -473,8 +467,7 @@ class _HomePageState extends State<HomePage>
                                         child: Column(
                                           children: <Widget>[
                                             Text(
-                                              _rq.renderer.extractFromTree(
-                                                  i, ["RecommendWord"], ""),
+                                              i["RecommendWord"] ?? "",
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 shadows: [
@@ -487,10 +480,7 @@ class _HomePageState extends State<HomePage>
                                             ),
                                             Text(
                                               "——" +
-                                                  _rq.renderer.extractFromTree(
-                                                      i,
-                                                      ["RecommenderName"],
-                                                      ""),
+                                                  (i["RecommenderName"] ?? ""),
                                               textAlign: TextAlign.right,
                                               style: TextStyle(
                                                 color: Colors.white,
@@ -671,10 +661,10 @@ class _HomePageState extends State<HomePage>
         );
         break;
       case 1:
-        List<Widget> leftLine =
-                _rq.renderer.topicList(_rq.getListByName("NewlyPost")), //左边这一栏为近日热门。
-            rightLine =
-                _rq.renderer.topicList(_rq.getListByName("NewlyUpdate")); //右边这一栏为最近更新。
+        List<Widget> leftLine = _rq.renderer
+                .topicList(_rq.getListByName("NewlyPost")), //左边这一栏为近日热门。
+            rightLine = _rq.renderer
+                .topicList(_rq.getListByName("NewlyUpdate")); //右边这一栏为最近更新。
         if (_rq.isLoading("NewlyPost"))
           leftLine.add(_rq.renderer.preloader());
         else if (_rq.getCurPage("NewlyPost") >= _rq.getTotalPage("NewlyPost"))
@@ -721,8 +711,8 @@ class _HomePageState extends State<HomePage>
         );
         break;
       case 2:
-        List<Widget> forumPostList =
-                _rq.renderer.topicList(_rq.getListByName("ForumPosts")), //左边这一栏为帖子。
+        List<Widget> forumPostList = _rq.renderer
+                .topicList(_rq.getListByName("ForumPosts")), //左边这一栏为帖子。
             findMoreList = []; //右边这一栏就有趣得多了。
         if (_rq.isLoading("ForumPosts"))
           forumPostList.add(_rq.renderer.preloader());
@@ -744,17 +734,15 @@ class _HomePageState extends State<HomePage>
         _hotChannelsArr.forEach((element) {
           findMoreList.add(ListTile(
             leading: CircleAvatar(
-              backgroundImage: NetworkImage(
-                _rq.renderer.extractFromTree(element, ["Background"],
-                    "https://i.loli.net/2020/04/09/NJI4nlBywjibo2X.jpg"),
-              ),
+              backgroundImage: NetworkImage(element["Background"] ??
+                  "https://i.loli.net/2020/04/09/NJI4nlBywjibo2X.jpg"),
             ),
             title: Text(
-              _rq.renderer.extractFromTree(element, ["Name"], ""),
+              element["Name"] ?? "",
               maxLines: 1,
             ),
             subtitle: Text(
-              _rq.renderer.extractFromTree(element, ["CreatorName"], ""),
+              element["CreatorName"] ?? "",
               maxLines: 1,
             ),
             onTap: () {
@@ -788,8 +776,7 @@ class _HomePageState extends State<HomePage>
                 });
               }));
             },
-            child: _rq.renderer.userAvatar(
-                _rq.renderer.extractFromTree(element, ["UserID"], 0)),
+            child: _rq.renderer.userAvatar(element["UserID"] ?? 0),
           ));
         }); //热门博文。
         findMoreList.add(Container(
@@ -883,7 +870,7 @@ class _HomePageState extends State<HomePage>
             style: TextStyle(color: Colors.white),
           ),
           child: Icon(Icons.group),
-          borderRadius: 1.5,
+          borderRadius: BorderRadius.circular(3),
           showBadge: _newUpdatesNum > 0,
         ),
         title: Text(FlutterI18n.translate(context, "updates")),
@@ -988,8 +975,7 @@ class _HomePageState extends State<HomePage>
 
     if (_rq.provider.UserID > 0) {
       int newNotificationsNum = _getNotificationNum(_tempBadgeNums),
-          examinationTopicsNum = _rq.renderer
-              .extractFromTree(_tempBadgeNums, ["NewExamination"], 0);
+          examinationTopicsNum = _tempBadgeNums["NewExamination"] ?? 0;
 
       showDrawerBadge = showDrawerBadge ||
           (newNotificationsNum > 0) ||
@@ -1028,7 +1014,7 @@ class _HomePageState extends State<HomePage>
               style: TextStyle(color: Colors.white),
             ),
             child: Icon(Icons.notifications),
-            borderRadius: 1.5,
+            borderRadius: BorderRadius.circular(3),
             showBadge: newNotificationsNum > 0,
           ),
           onTap: () {
@@ -1058,7 +1044,7 @@ class _HomePageState extends State<HomePage>
               style: TextStyle(color: Colors.white),
             ),
             child: Icon(Icons.unarchive),
-            borderRadius: 1.5,
+            borderRadius: BorderRadius.circular(3),
             showBadge: examinationTopicsNum > 0,
           ),
           onTap: () {
@@ -1137,13 +1123,14 @@ class _HomePageState extends State<HomePage>
       },
     )); //关于应用按钮。
 
-    return new Scaffold( //Scaffold是整个页面的排版布局，就是常见的几个结构。
+    return new Scaffold(
+      //Scaffold是整个页面的排版布局，就是常见的几个结构。
       appBar: new AppBar(
         leading: Builder(
           builder: (context) => IconButton(
             icon: Badge(
               child: Icon(Icons.menu),
-              borderRadius: 1.5,
+              borderRadius: BorderRadius.circular(3),
               showBadge: showDrawerBadge,
             ),
             onPressed: () {

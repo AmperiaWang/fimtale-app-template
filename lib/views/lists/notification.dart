@@ -155,7 +155,7 @@ class _NotificationListState extends State<NotificationList>
         break;
       case 4:
         if (_rq.getCurPage("Reports") <= 0 || withForce)
-          _getSingleNotification("reports", "Reports", "ReportsArray");
+          _getSingleNotification("reports", "Reports", "ReportArray");
         break;
     }
   }
@@ -186,28 +186,23 @@ class _NotificationListState extends State<NotificationList>
       _rq.getListByName(tableName).forEach((element) {
         res.add(ListTile(
           onTap: () {
-            _rq.launchURL(
-                _rq.renderer.extractFromTree(element, ["HeaderLink"], ""));
+            _rq.launchURL(element["HeaderLink"] ?? "");
           },
           leading: Badge(
             badgeContent: Text(
-              _rq.renderer
-                  .extractFromTree(element, ["NewMessageNum"], 0)
-                  .toString(),
+              (element["NewMessageNum"] ?? 0).toString(),
               style: TextStyle(color: Colors.white),
             ),
-            showBadge:
-                _rq.renderer.extractFromTree(element, ["NewMessageNum"], 0) > 0,
-            child: _rq.renderer.userAvatar(_rq.renderer
-                .extractFromTree(element, ["Avatar"], ["avatar", 0])[1]),
+            showBadge: (element["NewMessageNum"] ?? 0) > 0,
+            child: _rq.renderer.userAvatar((element["Avatar"] ?? [])[1] ?? 0),
           ),
           title: Text(
-            _rq.renderer.extractFromTree(element, ["Title"], ""),
+            element["Title"] ?? "",
             textScaleFactor: 1.25,
             maxLines: 1,
           ),
           subtitle: Text(
-            _rq.renderer.extractFromTree(element, ["Subtitle"], ""),
+            element["Subtitle"] ?? "",
             maxLines: 1,
           ),
         ));

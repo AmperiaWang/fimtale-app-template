@@ -30,9 +30,7 @@ class RequestHandler {
   Renderer renderer;
 
   //网站基地址
-  String _host = "https://fimtale.com",
-      _imgBoxTokenId = "",
-      _imgBoxTokenSecret = "";
+  String _imgBoxTokenId = "", _imgBoxTokenSecret = "";
 
   //网络连接状态。0为未连接，1为移动网，2为wifi
   int _webStatus;
@@ -44,9 +42,8 @@ class RequestHandler {
   Map _lists = {}, shareCardInfo = {};
 
   RequestHandler(BuildContext context,
-      {String host, List<String> listNames, Renderer renderer}) {
+      {List<String> listNames, Renderer renderer}) {
     _context = context;
-    if (host != null) _host = host;
     if (renderer != null)
       this.renderer = renderer;
     else
@@ -226,7 +223,7 @@ class RequestHandler {
     }
   }
 
-  Future<void> updateShareCardInfo() async {
+  Future<bool> updateShareCardInfo() async {
     List<String> links = [];
 
     shareLinkBuffer.forEach((element) {
@@ -238,37 +235,45 @@ class RequestHandler {
     });
     shareLinkBuffer = [];
 
-    if (links.length <= 0) return;
+    if (links.length <= 0) return false;
 
     var result = await request("/api/v1/json/getInfoByURL",
-        params: {'urls': jsonEncode(links)});
+            params: {'urls': jsonEncode(links)}),
+        isRendered = false;
 
     if (result["Status"] == 1) {
-      result["BlogpostsArray"].forEach((element) {
+      result["BlogpostArray"].forEach((element) {
         shareCardInfo["/b/" + element["ID"].toString()] = Map.from(element);
         _linksOnRequest.remove("/b/" + element["ID"].toString());
+        isRendered = true;
       });
-      result["ChannelsArray"].forEach((element) {
+      result["ChannelArray"].forEach((element) {
         shareCardInfo["/channel/" + element["ID"].toString()] =
             Map.from(element);
         _linksOnRequest.remove("/channel/" + element["ID"].toString());
+        isRendered = true;
       });
-      result["TagsArray"].forEach((element) {
+      result["TagArray"].forEach((element) {
         shareCardInfo["/tag/" + Uri.encodeComponent(element["Name"])] =
             Map.from(element);
         _linksOnRequest.remove("/tag/" + Uri.encodeComponent(element["Name"]));
+        isRendered = true;
       });
-      result["TopicsArray"].forEach((element) {
+      result["TopicArray"].forEach((element) {
         shareCardInfo["/t/" + element["ID"].toString()] = Map.from(element);
         _linksOnRequest.remove("/t/" + element["ID"].toString());
+        isRendered = true;
       });
-      result["UsersArray"].forEach((element) {
+      result["UserArray"].forEach((element) {
         shareCardInfo["/u/" + Uri.encodeComponent(element["UserName"])] =
             Map.from(element);
         _linksOnRequest
             .remove("/u/" + Uri.encodeComponent(element["UserName"]));
+        isRendered = true;
       });
     }
+
+    return isRendered;
   }
 
   Future<Map<String, dynamic>> request(
@@ -283,12 +288,22 @@ class RequestHandler {
         "ErrorMessage":
             FlutterI18n.translate(_context, "no_internet_connection")
       };
+    var tokenJson = await rootBundle.loadString('assets/json/token.json');
+    Map<String, dynamic> tokenInfo =
+        Map<String, dynamic>.from(jsonDecode(tokenJson));
     if (!url.startsWith("http://") &&
         !url.startsWith("https://") &&
-        !url.startsWith("ftp://")) url = _host + url;
+        !url.startsWith("ftp://")) url = tokenInfo['domain'] + url;
     await initCookieJar();
     method = method.toLowerCase();
     final options = Options(method: method);
+    if (params == null) params = {};
+    if (params.isEmpty) {
+      params = {"APIKey": tokenInfo['key'], "APIPass": tokenInfo['password']};
+    } else {
+      params["APIKey"] = tokenInfo['key'];
+      params["APIPass"] = tokenInfo['password'];
+    }
     try {
       print("Request sending, url: \"" +
           url +
@@ -297,10 +312,14 @@ class RequestHandler {
       Response response;
       switch (method) {
         case "get":
-          response = await this.dio.get(url, queryParameters: params);
+          response = await this
+              .dio
+              .get(url, options: options, queryParameters: params);
           break;
         case "post":
-          response = await this.dio.post(url, data: FormData.fromMap(params));
+          response = await this
+              .dio
+              .post(url, options: options, data: FormData.fromMap(params));
           break;
         default:
           response = await this.dio.request(url,
@@ -309,6 +328,9 @@ class RequestHandler {
               options: options);
           break;
       }
+      if (response.statusCode != 200)
+        return {"Status": 0, "ErrorMessage": response.statusMessage.toString()};
+      print(response.data.toString());
       var data = response.data;
       if (data is Map) {
         if (!data.containsKey("Status")) data["Status"] = 1;
@@ -326,6 +348,7 @@ class RequestHandler {
         return {"Status": 1, "Message": data};
       }
     } on DioError catch (e) {
+      print(e.message);
       return {"Status": 0, "ErrorMessage": e.toString()};
     }
   }

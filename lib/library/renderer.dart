@@ -6,18 +6,19 @@ import 'package:fimtale/elements/ftemoji.dart';
 import 'package:fimtale/elements/spoiler.dart';
 import 'package:fimtale/views/custom/contact_selector.dart';
 import 'package:fimtale/views/viewers/channel.dart';
+import 'package:fimtale/views/viewers/image_viewer.dart';
 import 'package:fimtale/views/viewers/tag.dart';
 import 'package:fimtale/views/viewers/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:markdown/markdown.dart' show markdownToHtml;
-import 'package:markdown_widget/markdown_generator.dart';
-import 'package:markdown_widget/markdown_widget.dart';
 import 'package:fimtale/views/viewers/blogpost.dart';
 import 'package:fimtale/views/viewers/topic.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sp_util/sp_util.dart';
 import 'package:toast/toast.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_html/html_parser.dart';
 
 //本应用的两大核心库之一，用于渲染各种界面以及整理各式各样的字符串。在大部分界面中都以requestHandler.renderer为变量名进行实例化。
 class Renderer {
@@ -32,19 +33,6 @@ class Renderer {
     else
       this.requestHandler =
           new RequestHandler(context, renderer: this); //初始化一个requestHandler。
-  }
-
-  //从由Map组成的树中取出某个内容，没有对应值的时候返回defaultValue。
-  dynamic extractFromTree(Map info, List<String> keys, dynamic defaultValue) {
-    dynamic tempInfo = info;
-    for (final k in keys) {
-      if (tempInfo is Map && tempInfo.containsKey(k)) {
-        tempInfo = tempInfo[k];
-      } else {
-        tempInfo = defaultValue;
-      }
-    }
-    return tempInfo;
   }
 
   //对时间戳进行规范化，得到时间的字符串表述。
@@ -132,49 +120,25 @@ class Renderer {
     var cardContent = <Widget>[];
     //标题，ListTile部件能更加方便展示头像、标题和用户名。
     cardContent.add(ListTile(
-      leading: userAvatar(extractFromTree(info, ["UserID"], 0)), //头像。
+      leading: userAvatar(info["UserID"] ?? 0), //头像。
       title: Text(
-        extractFromTree(info, ["Title"], ""),
+        info["Title"] ?? "",
         textScaleFactor: 1.25,
         maxLines: 2,
       ), //博文标题。
-      subtitle: Text(extractFromTree(info, ["UserName"], "")), //博文的作者用户名。
+      subtitle: Text(info["UserName"] ?? ""), //博文的作者用户名。
     ));
     cardContent.add(Container(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 20),
-      child: Column(
-        children: MarkdownGenerator(
-          data: emojiUtil(extractFromTree(info, ["Intro"], "")),
-          //博文简介（渲染过emoji后）
-          styleConfig: StyleConfig(
-            titleConfig: TitleConfig(),
-            pConfig: PConfig(
-              onLinkTap: (url) {
-                requestHandler.launchURL(url);
-              },
-              custom: (node) {
-                switch (node.tag) {
-                  case "ftemoji":
-                    return FTEmoji(node.attributes["code"]);
-                    break;
-                  default:
-                    return SizedBox(
-                      width: 0,
-                      height: 0,
-                    );
-                }
-              },
-            ),
-            blockQuoteConfig: BlockQuoteConfig(),
-            tableConfig: TableConfig(),
-            preConfig: PreConfig(),
-            ulConfig: UlConfig(),
-            olConfig: OlConfig(),
-            imgBuilder: (String url, attributes) {
-              return Image.network(url);
-            },
-          ),
-        ).widgets, //从用户端返回的内容为markdown格式，因此需要用MarkDownGenerator类来解析文本，使之成为flutter的组件。
+      child: Html(
+        data: emojiUtil(info["Intro"] ?? ""),
+        onLinkTap: (url) {
+          requestHandler.launchURL(url);
+        },
+        customRender: {
+          "ftemoji": (RenderContext context, child, attributes, element) {
+            return FTEmoji(attributes["code"]);
+          },
+        },
       ),
     ));
 
@@ -186,7 +150,7 @@ class Renderer {
         alignment: WrapAlignment.end,
         children: <Widget>[
           Chip(
-            label: Text(formatTime(extractFromTree(info, ["DateCreated"], 0))),
+            label: Text(formatTime(info["DateCreated"] ?? 0)),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -199,7 +163,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //创建日期。
           Chip(
-            label: Text(formatTime(extractFromTree(info, ["LastTime"], 0))),
+            label: Text(formatTime(info["LastTime"] ?? 0)),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -212,7 +176,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //最后活跃日期。
           Chip(
-            label: Text(extractFromTree(info, ["Followers"], 0).toString()),
+            label: Text((info["Followers"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -225,7 +189,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //收藏数。
           Chip(
-            label: Text(extractFromTree(info, ["WordCount"], 0).toString()),
+            label: Text((info["WordCount"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -238,7 +202,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //字数。
           Chip(
-            label: Text(extractFromTree(info, ["Comments"], 0).toString()),
+            label: Text((info["Comments"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -282,7 +246,7 @@ class Renderer {
   //频道卡片。
   Widget channelCard(Map info) {
     var cardContent = <Widget>[];
-    String background = extractFromTree(info, ["Background"], "");
+    String background = info["Background"] ?? "";
     cardContent.add(GestureDetector(
       onTap: () {
         Navigator.push(_context, MaterialPageRoute(builder: (_context) {
@@ -306,14 +270,14 @@ class Renderer {
           ), //AspectRatio用来框定比例，此处令图像为1：1。
         ), //频道封面。
         title: Text(
-          extractFromTree(info, ["Name"], ""),
+          info["Name"] ?? "",
           textScaleFactor: 1.25,
           maxLines: 2,
         ), //频道名
-        subtitle: Text(extractFromTree(info, ["CreatorName"], "")), //创建者。
+        subtitle: Text(info["CreatorName"] ?? ""), //创建者。
       ),
     ));
-    String intro = extractFromTree(info, ["Intro"], ""); //频道简介。
+    String intro = info["Intro"] ?? ""; //频道简介。
     bool hasIntro = intro != null && intro.length > 0;
     if (hasIntro) {
       cardContent.add(GestureDetector(
@@ -352,7 +316,7 @@ class Renderer {
                   color: Colors.lightBlue,
                 ),
                 Text(
-                  extractFromTree(info, ["Collections"], 0).toString(),
+                  (info["Collections"] ?? 0).toString(),
                   style: TextStyle(color: Colors.lightBlue),
                 ),
               ],
@@ -366,7 +330,7 @@ class Renderer {
                 color: Colors.green,
               ),
               Text(
-                extractFromTree(info, ["Upvotes"], 0).toString(),
+                (info["Upvotes"] ?? 0).toString(),
                 style: TextStyle(color: Colors.green),
               ),
             ],
@@ -386,7 +350,7 @@ class Renderer {
                   color: Colors.red[300],
                 ),
                 Text(
-                  extractFromTree(info, ["Followers"], 0).toString(),
+                  (info["Followers"] ?? 0).toString(),
                   style: TextStyle(color: Colors.red[300]),
                 ),
               ],
@@ -407,7 +371,7 @@ class Renderer {
                   color: Colors.deepPurple[400],
                 ),
                 Text(
-                  extractFromTree(info, ["Comments"], 0).toString(),
+                  (info["Comments"] ?? 0).toString(),
                   style: TextStyle(color: Colors.deepPurple[400]),
                 ),
               ],
@@ -426,7 +390,7 @@ class Renderer {
             color: Colors.blue[600],
           ),
           Text(
-            formatTime(extractFromTree(info, ["LastTime"], 0)),
+            formatTime(info["LastTime"] ?? 0),
             style: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -456,114 +420,103 @@ class Renderer {
   Widget commentCard(Map info, Function urlFunction,
       {bool useCard = false, List<Widget> actionBarItems}) {
     var cardContent = <Widget>[];
-    if (extractFromTree(info, ["IsDel"], 0) == 0) {
+    if ((info["IsDel"] ?? 0) == 0) {
       cardContent.addAll([
         ListTile(
-          leading: userAvatar(extractFromTree(info, ["UserID"], 0)), //用户头像。
+          leading: userAvatar(info["UserID"] ?? 0), //用户头像。
           title: Text(
-            extractFromTree(info, ["UserName"], ""),
+            info["UserName"] ?? "",
             textScaleFactor: 1.25,
             maxLines: 1,
           ), //用户名。
         ),
         Container(
-          padding: EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: MarkdownGenerator(
-              data: emojiUtil(extractFromTree(info, ["Content"], "")),
-              styleConfig: StyleConfig(
-                titleConfig: TitleConfig(),
-                pConfig: PConfig(
-                  onLinkTap: (url) {
-                    urlFunction(url);
+          child: Html(
+            data: emojiUtil(info["Content"] ?? ""),
+            onLinkTap: (url) {
+              requestHandler.launchURL(url);
+            },
+            onImageTap: (src) {
+              Navigator.push(_context, MaterialPageRoute(builder: (context) {
+                return ImageViewer(
+                  value: {
+                    "UrlList": [src],
+                    "CurIndex": 0
                   },
-                  custom: (node) {
-                    switch (node.tag) {
-                      case "collapse":
-                      case "reply":
-                        return ExpansionTile(
-                          title: new Text(FlutterI18n.translate(
-                              _context, "something_is_collapsed")),
-                          children: <Widget>[Text(node.attributes["content"])],
-                        );
-                        break;
-                      case "login":
-                        if (node.attributes["available"] == "true") {
-                          return Card(
-                            child: Container(
-                              padding: EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: <Widget>[
-                                  Text(
-                                    FlutterI18n.translate(
-                                        _context, "content_visible_when_login"),
-                                    textScaleFactor: 1.25,
-                                  ),
-                                  Text(node.attributes["content"]),
-                                ],
-                              ),
-                            ),
-                          );
-                        } else {
-                          return Card(
-                            child: Container(
-                              padding: EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: <Widget>[
-                                  Text(
-                                    FlutterI18n.translate(
-                                        _context, "login_to_read"),
-                                    textScaleFactor: 1.25,
-                                  ),
-                                  Text(node.attributes["content"]),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-                        break;
-                      case "share":
-                        requestHandler.shareLinkBuffer.add("/" +
-                            requestHandler
-                                .getTypeCode(node.attributes["type"]) +
-                            "/" +
-                            node.attributes["code"]);
-                        return ShareCard(requestHandler,
-                            node.attributes["type"], node.attributes["code"]);
-                        break;
-                      case "spoiler":
-                        return Spoiler(content: node.attributes["content"]);
-                        break;
-                      case "ftemoji":
-                        return FTEmoji(node.attributes["code"]);
-                        break;
-                      default:
-                        return SizedBox(
-                          width: 0,
-                          height: 0,
-                        );
-                    }
-                  },
-                ),
-                blockQuoteConfig: BlockQuoteConfig(),
-                tableConfig: TableConfig(),
-                preConfig: PreConfig(),
-                ulConfig: UlConfig(),
-                olConfig: OlConfig(),
-                imgBuilder: (String url, attributes) {
-                  return Image.network(url);
-                },
-              ),
-            ).widgets,
+                );
+              }));
+            },
+            customRender: {
+              "collapse": (RenderContext context, child, attributes, element) {
+                return ExpansionTile(
+                  title: new Text(FlutterI18n.translate(
+                      _context, "something_is_collapsed")),
+                  children: <Widget>[Text(element.text)],
+                );
+              },
+              "reply": (RenderContext context, child, attributes, element) {
+                return ExpansionTile(
+                  title: new Text(FlutterI18n.translate(
+                      _context, "something_is_collapsed")),
+                  children: <Widget>[Text(element.text)],
+                );
+              },
+              "login": (RenderContext context, child, attributes, element) {
+                if (attributes["available"] == "true") {
+                  return Card(
+                    child: Container(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            FlutterI18n.translate(
+                                _context, "content_visible_when_login"),
+                            textScaleFactor: 1.25,
+                          ),
+                          Text(element.text),
+                        ],
+                      ),
+                    ),
+                  );
+                } else {
+                  return Card(
+                    child: Container(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            FlutterI18n.translate(_context, "login_to_read"),
+                            textScaleFactor: 1.25,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+              },
+              "share": (RenderContext context, child, attributes, element) {
+                this.requestHandler.shareLinkBuffer.add("/" +
+                    this.requestHandler.getTypeCode(attributes["type"]) +
+                    "/" +
+                    attributes["code"]);
+                return ShareCard(this.requestHandler, attributes["type"],
+                    attributes["code"]);
+              },
+              "spoiler": (RenderContext context, child, attributes, element) {
+                return Spoiler(content: element.text);
+              },
+              "ftemoji": (RenderContext context, child, attributes, element) {
+                return FTEmoji(attributes["code"]);
+              },
+            },
           ),
         ), //评论内容。
         Container(
           padding: EdgeInsets.all(12),
           child: Text(
-            formatTime(extractFromTree(info, ["DateCreated"], 0)),
+            formatTime(info["DateCreated"] ?? 0),
             style: TextStyle(color: Theme.of(_context).disabledColor),
             textAlign: TextAlign.right,
           ),
@@ -588,9 +541,7 @@ class Renderer {
         ),
         child: Text(
           FlutterI18n.translate(_context, "some_comment_deleted",
-              translationParams: {
-                "UserName": extractFromTree(info, ["UserName"], "")
-              }),
+              translationParams: {"UserName": info["UserName"] ?? ""}),
           style: TextStyle(color: Colors.red),
         ),
       ));
@@ -616,7 +567,7 @@ class Renderer {
   Widget messageCard(Map info,
       {bool useCard = false, bool singleLineSubtitle = false}) {
     RegExp watchMoreRegExp = RegExp(r"[\n\.… ]*查看更多[\n\.… ]*$");
-    String txtContent = emojiUtil(extractFromTree(info, ["Content"], ""));
+    String txtContent = emojiUtil(info["Content"] ?? "");
     bool watchMoreSignalFounded = watchMoreRegExp.hasMatch(txtContent);
     txtContent = txtContent.replaceAll(watchMoreRegExp, "……");
     List<Widget> cardContent = [];
@@ -653,7 +604,7 @@ class Renderer {
     cardContent.add(ListTile(
       leading: avatar,
       title: Text(
-        extractFromTree(info, ["Title"], ""),
+        info["Title"] ?? "",
         textScaleFactor: 1.25,
         maxLines: 1,
       ), //标题。
@@ -671,43 +622,17 @@ class Renderer {
       },
     ));
     if (info.containsKey("Content") && info["Content"] != null) {
-      List<Widget> content = MarkdownGenerator(
+      Widget content = Html(
         data: txtContent,
-        styleConfig: StyleConfig(
-          titleConfig: TitleConfig(),
-          pConfig: PConfig(
-            onLinkTap: (url) {
-              requestHandler.launchURL(url);
-            },
-            custom: (node) {
-              switch (node.tag) {
-                case "ftemoji":
-                  return FTEmoji(node.attributes["code"]);
-                  break;
-                default:
-                  return SizedBox(
-                    width: 0,
-                    height: 0,
-                  );
-              }
-            },
-          ),
-          blockQuoteConfig: BlockQuoteConfig(),
-          tableConfig: TableConfig(),
-          preConfig: PreConfig(),
-          ulConfig: UlConfig(),
-          olConfig: OlConfig(),
-          imgBuilder: (String url, attributes) {
-            return Image.network(url);
+        onLinkTap: (url) {
+          requestHandler.launchURL(url);
+        },
+        customRender: {
+          "ftemoji": (RenderContext context, child, attributes, element) {
+            return FTEmoji(attributes["code"]);
           },
-        ),
-      ).widgets; //内容。
-      if (watchMoreSignalFounded) {
-        content.add(Text(
-          FlutterI18n.translate(_context, "watch_more"),
-          style: TextStyle(color: Colors.indigo),
-        ));
-      }
+        },
+      ); //内容。
       if (info.containsKey("ContentLink") && info["ContentLink"] != null)
         cardContent.add(GestureDetector(
           onTap: () {
@@ -715,28 +640,20 @@ class Renderer {
           },
           child: AbsorbPointer(
             child: Container(
-              padding: EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: content,
-              ),
+              child: content,
             ),
           ),
         ));
       else
         cardContent.add(Container(
-          padding: EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: content,
-          ),
+          child: content,
         ));
     }
     if (info.containsKey("Message") && info["Message"] != null)
       cardContent.add(Container(
         padding: EdgeInsets.all(12),
         child: Text(
-          extractFromTree(info, ["Message"], ""),
+          info["Message"] ?? "",
           style: TextStyle(color: Theme.of(_context).disabledColor),
         ),
       )); //底端小字。
@@ -768,61 +685,23 @@ class Renderer {
                     ),
               Flexible(
                 child: Container(
-                  padding: EdgeInsets.all(12),
                   child: ListTile(
                     title: Text(
                       info["Appendix"]["Title"],
                       textScaleFactor: 1.1,
                       maxLines: 2,
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: MarkdownGenerator(
-                        data: emojiUtil(info["Appendix"]["Subtitle"]),
-                        styleConfig: StyleConfig(
-                          titleConfig: TitleConfig(
-                            commonStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          pConfig: PConfig(
-                            textStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          blockQuoteConfig: BlockQuoteConfig(
-                            blockStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          tableConfig: TableConfig(
-                            headerStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                            bodyStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          preConfig: PreConfig(
-                            textStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          ulConfig: UlConfig(
-                            textStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          olConfig: OlConfig(
-                            textStyle: TextStyle(
-                              color: Theme.of(_context).disabledColor,
-                            ),
-                          ),
-                          imgBuilder: (String url, attributes) {
-                            return Image.network(url);
-                          },
-                        ),
-                      ).widgets,
+                    subtitle: Html(
+                      data: emojiUtil(info["Appendix"]["Subtitle"]),
+                      onLinkTap: (url) {
+                        requestHandler.launchURL(url);
+                      },
+                      customRender: {
+                        "ftemoji": (RenderContext context, child, attributes,
+                            element) {
+                          return FTEmoji(attributes["code"]);
+                        },
+                      },
                     ),
                   ),
                 ),
@@ -837,7 +716,7 @@ class Renderer {
     cardContent.add(Container(
       padding: EdgeInsets.all(12),
       child: Text(
-        formatTime(extractFromTree(info, ["DateCreated"], 0)),
+        formatTime(info["DateCreated"] ?? 0),
         style: TextStyle(color: Theme.of(_context).disabledColor),
         textAlign: TextAlign.right,
       ),
@@ -863,20 +742,19 @@ class Renderer {
     var cardContent = <Widget>[];
     cardContent.add(ListTile(
       leading: CircleAvatar(
-        backgroundImage: NetworkImage(
-            extractFromTree(info, ["IconExists"], false)
-                ? "https://fimtale.com/upload/tag/middle/" +
-                    extractFromTree(info, ["ID"], 0).toString() +
-                    ".png"
-                : "https://i.loli.net/2020/04/09/JrxohDzQgKN6vUn.jpg"),
+        backgroundImage: NetworkImage((info["IconExists"] ?? false)
+            ? "https://fimtale.com/upload/tag/middle/" +
+                (info["ID"] ?? 0).toString() +
+                ".png"
+            : "https://i.loli.net/2020/04/09/JrxohDzQgKN6vUn.jpg"),
       ), //图标。
       title: Text(
-        extractFromTree(info, ["Name"], ""),
+        info["Name"] ?? "",
         textScaleFactor: 1.25,
         maxLines: 2,
       ), //标签名。
     ));
-    String intro = extractFromTree(info, ["Intro"], "");
+    String intro = info["Intro"] ?? "";
     bool hasIntro = intro != null && intro.length > 0;
     if (hasIntro) {
       cardContent.add(Container(
@@ -896,7 +774,7 @@ class Renderer {
         alignment: WrapAlignment.end,
         children: <Widget>[
           Chip(
-            label: Text(extractFromTree(info, ["TotalTopics"], 0).toString()),
+            label: Text((info["TotalTopics"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -909,7 +787,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //作品数。
           Chip(
-            label: Text(formatTime(extractFromTree(info, ["LastTime"], 0))),
+            label: Text(formatTime(info["LastTime"] ?? 0)),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -922,7 +800,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //最后一个作品的发表日期。
           Chip(
-            label: Text(extractFromTree(info, ["Followers"], 0).toString()),
+            label: Text((info["Followers"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -966,7 +844,7 @@ class Renderer {
   //作品卡片
   Widget topicCard(Map info) {
     var cardContent = <Widget>[];
-    String background = extractFromTree(info, ["Background"], null);
+    String background = info["Background"] ?? null;
     bool hasBackground = background != null && background != "NONE";
     cardContent.add(Stack(
       //Stack用于叠加内容，比如说在背景上罩一个纯黑半透明遮罩或是在背景上加文字。
@@ -982,22 +860,20 @@ class Renderer {
             : SizedBox(
                 height: 60,
               ), //如果没有的话，就显示一个高60的占位符，以便放下主标签。
-        mainTagSet(
-            extractFromTree(info, ["Tags"], {}),
-            extractFromTree(info, ["IsDel"], 0) > 0,
-            extractFromTree(info, ["ExaminationStatus"], "passed")), //主标签。
+        mainTagSet(info["Tags"] ?? {}, (info["IsDel"] ?? 0) > 0,
+            info["ExaminationStatus"] ?? "passed"), //主标签。
       ],
     ));
     cardContent.add(ListTile(
-      leading: userAvatar(extractFromTree(info, ["UserID"], 0)), //头像。
+      leading: userAvatar(info["UserID"] ?? 0), //头像。
       title: Text(
-        extractFromTree(info, ["Title"], ""),
+        info["Title"] ?? "",
         textScaleFactor: 1.25,
         maxLines: 2,
       ), //作品标题。
-      subtitle: Text(extractFromTree(info, ["UserName"], "")), //用户名。
+      subtitle: Text(info["UserName"] ?? ""), //用户名。
     ));
-    String intro = extractFromTree(info, ["Intro"], "");
+    String intro = info["Intro"] ?? "";
     bool hasIntro = intro != null && intro.length > 0;
     if (hasIntro) {
       cardContent.add(Container(
@@ -1006,8 +882,7 @@ class Renderer {
       ));
     } //简介。
     if (!hasBackground || !hasIntro) {
-      List<String> tags =
-          List.from(extractFromTree(info, ["Tags", "OtherTags"], []));
+      List<String> tags = List.from((info["Tags"] ?? {})["OtherTags"] ?? []);
       cardContent.add(Container(
         padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Wrap(
@@ -1025,7 +900,7 @@ class Renderer {
         alignment: WrapAlignment.end,
         children: <Widget>[
           Chip(
-            label: Text(formatTime(extractFromTree(info, ["DateUpdated"], 0))),
+            label: Text(formatTime(info["DateUpdated"] ?? 0)),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1038,7 +913,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //发表时间。
           Chip(
-            label: Text(formatTime(extractFromTree(info, ["LastTime"], 0))),
+            label: Text(formatTime(info["LastTime"] ?? 0)),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1050,10 +925,9 @@ class Renderer {
             padding: EdgeInsets.all(0),
             labelPadding: EdgeInsets.all(0),
           ), //最后活跃时间。
-          (extractFromTree(info, ["Tags", "Type"], "内容") == "图集")
+          (((info["Tags"] ?? {})["Type"] ?? "内容") == "图集")
               ? Chip(
-                  label:
-                      Text(extractFromTree(info, ["ImageCount"], 0).toString()),
+                  label: Text((info["ImageCount"] ?? 0).toString()),
                   labelStyle: TextStyle(
                     color: Theme.of(_context).disabledColor,
                   ),
@@ -1066,8 +940,7 @@ class Renderer {
                   labelPadding: EdgeInsets.all(0),
                 ) //如果是图楼，显示图片数。
               : Chip(
-                  label:
-                      Text(extractFromTree(info, ["WordCount"], 0).toString()),
+                  label: Text((info["WordCount"] ?? 0).toString()),
                   labelStyle: TextStyle(
                     color: Theme.of(_context).disabledColor,
                   ),
@@ -1080,7 +953,7 @@ class Renderer {
                   labelPadding: EdgeInsets.all(0),
                 ), //如果不是，显示字数。
           Chip(
-            label: Text(extractFromTree(info, ["Views"], 0).toString()),
+            label: Text((info["Views"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1093,7 +966,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //阅读数。
           Chip(
-            label: Text(extractFromTree(info, ["Comments"], 0).toString()),
+            label: Text((info["Comments"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1106,7 +979,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //评论数。
           Chip(
-            label: Text(extractFromTree(info, ["Followers"], 0).toString()),
+            label: Text((info["Followers"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1119,7 +992,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //收藏数
           Chip(
-            label: Text(extractFromTree(info, ["Upvotes"], 0).toString()),
+            label: Text((info["Upvotes"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1132,7 +1005,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //赞数。
           Chip(
-            label: Text(extractFromTree(info, ["Downvotes"], 0).toString()),
+            label: Text((info["Downvotes"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1145,7 +1018,7 @@ class Renderer {
             labelPadding: EdgeInsets.all(0),
           ), //踩数。
           Chip(
-            label: Text(extractFromTree(info, ["HighPraise"], 0).toString()),
+            label: Text((info["HighPraise"] ?? 0).toString()),
             labelStyle: TextStyle(
               color: Theme.of(_context).disabledColor,
             ),
@@ -1196,15 +1069,15 @@ class Renderer {
         }));
       },
       child: ListTile(
-        leading: userAvatar(extractFromTree(info, ["ID"], 0)), //头像。
+        leading: userAvatar(info["ID"] ?? 0), //头像。
         title: Text(
-          extractFromTree(info, ["UserName"], ""),
+          info["UserName"] ?? "",
           textScaleFactor: 1.25,
           maxLines: 2,
         ), //用户名。
       ),
     ));
-    String intro = extractFromTree(info, ["UserIntro"], "");
+    String intro = info["UserIntro"] ?? "";
     bool hasIntro = intro != null && intro.length > 0;
     if (hasIntro) {
       cardContent.add(GestureDetector(
@@ -1245,7 +1118,7 @@ class Renderer {
                   Icons.book,
                   color: Colors.lightBlue,
                 ),
-                Text(extractFromTree(info, ["Topics"], 0).toString()),
+                Text((info["Topics"] ?? 0).toString()),
               ],
             ),
           ), //作品数。
@@ -1265,7 +1138,7 @@ class Renderer {
                   Icons.cast,
                   color: Colors.blue[700],
                 ),
-                Text(extractFromTree(info, ["Channels"], 0).toString()),
+                Text((info["Channels"] ?? 0).toString()),
               ],
             ),
           ), //频道数。
@@ -1285,7 +1158,7 @@ class Renderer {
                   Icons.photo_album,
                   color: Colors.deepPurple,
                 ),
-                Text(extractFromTree(info, ["Blogposts"], 0).toString()),
+                Text((info["Blogposts"] ?? 0).toString()),
               ],
             ),
           ), //博文数。
@@ -1305,7 +1178,7 @@ class Renderer {
                   Icons.favorite,
                   color: Colors.red[300],
                 ),
-                Text(extractFromTree(info, ["Followers"], 0).toString()),
+                Text((info["Followers"] ?? 0).toString()),
               ],
             ),
           ), //粉丝数。
@@ -1358,11 +1231,10 @@ class Renderer {
 
   //根据作品的所有标签来渲染主标签。
   Widget mainTagSet(Map tagInfo, bool isDeleted, String examinationStatus) {
-    String type = extractFromTree(tagInfo, ["Type"], ""),
-        source = extractFromTree(tagInfo, ["Length"], "") +
-            extractFromTree(tagInfo, ["Source"], ""),
-        rating = extractFromTree(tagInfo, ["Rating"], ""),
-        status = extractFromTree(tagInfo, ["Status"], "");
+    String type = tagInfo["Type"] ?? "",
+        source = (tagInfo["Length"] ?? "") + (tagInfo["Source"] ?? ""),
+        rating = tagInfo["Rating"] ?? "",
+        status = tagInfo["Status"] ?? "";
     if (type == "公告") {
       return Chip(
         label: Text("公告"),
@@ -1541,7 +1413,7 @@ class Renderer {
       TextSpan(
         children: [
           TextSpan(
-            text: "Lv." + extractFromTree(userGrade, ["Grade"], 0).toString(),
+            text: "Lv." + (userGrade["Grade"] ?? 0).toString(),
             style: TextStyle(
               color: Colors.orange,
               fontWeight: FontWeight.bold,
@@ -1549,10 +1421,9 @@ class Renderer {
           ),
           TextSpan(
             text: " " +
-                extractFromTree(userGrade, ["Exp"], 0).toString() +
+                (userGrade["Exp"] ?? 0).toString() +
                 "/" +
-                (extractFromTree(userGrade, ["ExpToUpgrade"], 0) +
-                        extractFromTree(userGrade, ["Exp"], 0))
+                (userGrade["ExpToUpgrade"] ?? 0 + userGrade["Exp"] ?? 0)
                     .toString(),
           ),
         ],
@@ -1657,9 +1528,14 @@ class Renderer {
     );
   }
 
-  Widget userAvatar(int userID, {String size = "middle", double radius}) {
+  Widget userAvatar(dynamic userID, {String size = "middle", double radius}) {
+    bool noID = false;
+    if (!(userID is String)) {
+      userID = userID.toString();
+      if (userID == 0) noID = true;
+    }
     return CircleAvatar(
-      backgroundImage: userID > 0
+      backgroundImage: !noID
           ? NetworkImage("https://fimtale.com/upload/avatar/" +
               size +
               "/" +

@@ -104,8 +104,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
             _getTopics();
             break;
           case 3:
-            if (_rq.renderer.extractFromTree(_userInfo, ["BlogStatus"], 0) == 1)
-              _getBlogposts();
+            if ((_userInfo["BlogStatus"] ?? 0) == 1) _getBlogposts();
             break;
           case 4:
             _getComments();
@@ -152,7 +151,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
         if (_rq.getCurPage("Topics") <= 0) _getTopics();
         break;
       case 3:
-        if (_rq.renderer.extractFromTree(_userInfo, ["BlogStatus"], 0) == 1 &&
+        if ((_userInfo["BlogStatus"] ?? 0) == 1 &&
             _rq.getCurPage("Blogposts") <= 0) _getBlogposts();
         break;
       case 4:
@@ -173,14 +172,14 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
             MaterialPageRoute(builder: (context) {
           return UserList(value: {
             "PageTitle": FlutterI18n.translate(context, "no_user_found"),
-            "UsersArray": data["UsersArray"]
+            "UserArray": data["UserArray"]
           });
         }));
       }
       _userInfo = Map<String, dynamic>.from(data["UserInfo"]);
       _userStatInfo = Map<String, dynamic>.from(data["UserStatInfo"]);
       return {
-        "List": data["UpdatesArray"],
+        "List": data["UpdateArray"],
         "CurPage": data["Page"],
         "TotalPage": data["TotalPage"]
       };
@@ -208,13 +207,13 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
                 MaterialPageRoute(builder: (context) {
               return UserList(value: {
                 "PageTitle": FlutterI18n.translate(context, "no_user_found"),
-                "UsersArray": data["UsersArray"]
+                "UserArray": data["UserArray"]
               });
             }));
           }
           _userInfo = Map<String, dynamic>.from(data["UserInfo"]);
           return {
-            "List": data["TopicsArray"],
+            "List": data["TopicArray"],
             "CurPage": data["Page"],
             "TotalPage": data["TotalPage"]
           };
@@ -242,13 +241,13 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
             MaterialPageRoute(builder: (context) {
           return UserList(value: {
             "PageTitle": FlutterI18n.translate(context, "no_user_found"),
-            "UsersArray": data["UsersArray"]
+            "UserArray": data["UserArray"]
           });
         }));
       }
       _userInfo = Map<String, dynamic>.from(data["UserInfo"]);
       return {
-        "List": data["CommentsArray"],
+        "List": data["CommentArray"],
         "CurPage": data["Page"],
         "TotalPage": data["TotalPage"]
       };
@@ -272,13 +271,13 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
             MaterialPageRoute(builder: (context) {
           return UserList(value: {
             "PageTitle": FlutterI18n.translate(context, "no_user_found"),
-            "UsersArray": data["UsersArray"]
+            "UserArray": data["UserArray"]
           });
         }));
       }
       _userInfo = Map<String, dynamic>.from(data["UserInfo"]);
       return {
-        "List": data["BlogpostsArray"],
+        "List": data["BlogpostArray"],
         "CurPage": data["Page"],
         "TotalPage": data["TotalPage"]
       };
@@ -302,13 +301,13 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
             MaterialPageRoute(builder: (context) {
           return UserList(value: {
             "PageTitle": FlutterI18n.translate(context, "no_user_found"),
-            "UsersArray": data["UsersArray"]
+            "UserArray": data["UserArray"]
           });
         }));
       }
       _userInfo = Map<String, dynamic>.from(data["UserInfo"]);
       return {
-        "List": data["ChannelsArray"],
+        "List": data["ChannelArray"],
         "CurPage": data["Page"],
         "TotalPage": data["TotalPage"]
       };
@@ -352,10 +351,9 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    List<String> allowedOptions = List<String>.from(
-        _rq.renderer.extractFromTree(_userInfo, ["AllowedOptions"], []));
-    String background =
-        _rq.renderer.extractFromTree(_userInfo, ["Background"], "");
+    List<String> allowedOptions =
+        List<String>.from(_userInfo["AllowedOptions"] ?? []);
+    String background = _userInfo["Background"] ?? "";
     List<Widget> appBarActions = [];
     if ([2, 3, 5].contains(_curIndex))
       appBarActions.add(IconButton(
@@ -394,8 +392,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
         icon: Icon(
             _userInfo["IsFavorite"] ? Icons.favorite : Icons.favorite_border),
         onPressed: () {
-          _rq.manage(_rq.renderer.extractFromTree(_userInfo, ["ID"], 0), 4, "3",
-              (res) {
+          _rq.manage(_userInfo["ID"] ?? 0, 4, "3", (res) {
             setState(() {
               if (_userInfo["IsFavorite"])
                 _userInfo["Followers"]--;
@@ -477,14 +474,12 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
                             Container(
                               padding: EdgeInsets.all(24),
                               child: _rq.renderer.userAvatar(
-                                  _rq.renderer
-                                      .extractFromTree(_userInfo, ["ID"], 0),
+                                  _userInfo["ID"] ?? 0,
                                   size: "large",
                                   radius: 48),
                             ),
                             Text(
-                              _rq.renderer
-                                  .extractFromTree(_userInfo, ["UserName"], ""),
+                              _userInfo["UserName"] ?? "",
                               textScaleFactor: 2,
                               style: TextStyle(color: Colors.white),
                             ),
@@ -492,9 +487,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
                               margin: EdgeInsets.symmetric(
                                   vertical: 8, horizontal: 12),
                               child: _rq.renderer.singleLineBadges(
-                                  List<String>.from(_rq.renderer
-                                      .extractFromTree(
-                                          _userInfo, ["Badges"], []))),
+                                  List<String>.from(_userInfo["Badges"] ?? [])),
                             ),
                             SizedBox(
                               height: 10,
@@ -529,9 +522,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
                                       FlutterI18n.translate(
                                               context, "following") +
                                           " " +
-                                          _rq.renderer
-                                              .extractFromTree(
-                                                  _userInfo, ["Following"], 0)
+                                          (_userInfo["Following"] ?? 0)
                                               .toString(),
                                       style: TextStyle(
                                         color: Colors.white,
@@ -563,9 +554,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
                                       FlutterI18n.translate(
                                               context, "followers") +
                                           " " +
-                                          _rq.renderer
-                                              .extractFromTree(
-                                                  _userInfo, ["Followers"], 0)
+                                          (_userInfo["Followers"] ?? 0)
                                               .toString(),
                                       style: TextStyle(
                                         color: Colors.white,
@@ -602,30 +591,22 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
                     Tab(
                       text: FlutterI18n.translate(context, "topics") +
                           " " +
-                          _rq.renderer
-                              .extractFromTree(_userInfo, ["Topics"], 0)
-                              .toString(),
+                          (_userInfo["Topics"] ?? 0).toString(),
                     ),
                     Tab(
                       text: FlutterI18n.translate(context, "blogposts") +
                           " " +
-                          _rq.renderer
-                              .extractFromTree(_userInfo, ["Blogposts"], 0)
-                              .toString(),
+                          (_userInfo["Blogposts"] ?? 0).toString(),
                     ),
                     Tab(
                       text: FlutterI18n.translate(context, "comments") +
                           " " +
-                          _rq.renderer
-                              .extractFromTree(_userInfo, ["Comments"], 0)
-                              .toString(),
+                          (_userInfo["Comments"] ?? 0).toString(),
                     ),
                     Tab(
                       text: FlutterI18n.translate(context, "channels") +
                           " " +
-                          _rq.renderer
-                              .extractFromTree(_userInfo, ["Channels"], 0)
-                              .toString(),
+                          (_userInfo["Channels"] ?? 0).toString(),
                     ),
                   ],
                 ),
@@ -648,8 +629,8 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
     List<Widget> contentList = [];
     switch (_curIndex) {
       case 0:
-        Map<String, dynamic> userGrade = Map<String, dynamic>.from(
-            _rq.renderer.extractFromTree(_userInfo, ["GradeInfo"], {}));
+        Map<String, dynamic> userGrade =
+            Map<String, dynamic>.from(_userInfo["GradeInfo"] ?? {});
         List<Widget> introList = [
           Container(
             padding: EdgeInsets.symmetric(vertical: 6),
@@ -941,7 +922,7 @@ class _UserViewState extends State<UserView> with TickerProviderStateMixin {
           contentList.add(_rq.renderer.endNotice());
         break;
       case 3:
-        if (_rq.renderer.extractFromTree(_userInfo, ["BlogStatus"], 0) != 1) {
+        if ((_userInfo["BlogStatus"] ?? 0) != 1) {
           contentList.add(Center(
             child: Text(FlutterI18n.translate(context, "blog_not_opened")),
           ));

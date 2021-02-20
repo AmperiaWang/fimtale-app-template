@@ -79,7 +79,7 @@ class _ContactSelectorState extends State<ContactSelector>
     if (result["Status"] == 1) {
       if (!mounted) return;
       setState(() {
-        _searchResult = result["UsersArray"];
+        _searchResult = result["UserArray"];
         _isLoading = false;
       });
     } else {
@@ -134,10 +134,10 @@ class _ContactSelectorState extends State<ContactSelector>
   }
 
   //显示用户列表（简单版本的，每个用户只有一个ListTile）。
-  Widget _displayUserList(BuildContext context, List usersArray,
+  Widget _displayUserList(BuildContext context, List userArray,
       {bool search = false}) {
     return ListView.builder(
-      itemCount: usersArray.length + (search ? 1 : 0),
+      itemCount: userArray.length + (search ? 1 : 0),
       itemBuilder: (context, index) {
         if (search) {
           if (index <= 0)
@@ -156,10 +156,10 @@ class _ContactSelectorState extends State<ContactSelector>
             index = index - 1;
         }
         return ListTile(
-          leading: _rq.renderer.userAvatar(usersArray[index]["ID"]),
-          title: Text(usersArray[index]["UserName"]),
+          leading: _rq.renderer.userAvatar(userArray[index]["ID"]),
+          title: Text(userArray[index]["UserName"]),
           onTap: () {
-            Navigator.pop(context, usersArray[index]["UserName"]);
+            Navigator.pop(context, userArray[index]["UserName"]);
           },
         );
       },

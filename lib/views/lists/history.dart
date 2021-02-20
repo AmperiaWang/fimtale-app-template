@@ -151,11 +151,9 @@ class _HistoryListState extends State<HistoryList> {
 
     _rq.getListByName("Topics").forEach((element) {
       final int li = index;
-      int dateCreated =
-          _rq.renderer.extractFromTree(element, ["DateCreated"], 0);
+      int dateCreated = element["DateCreated"] ?? 0;
       String tempTime = FlutterI18n.translate(context, "unknown");
-      double progress = double.parse(
-          _rq.renderer.extractFromTree(element, ["Progress"], 0.0).toString());
+      double progress = double.parse((element["Progress"] ?? 0.0).toString());
       if (now - dateCreated < 86400) {
         tempTime = FlutterI18n.translate(context, "within_24_hours");
       } else {
@@ -170,7 +168,7 @@ class _HistoryListState extends State<HistoryList> {
         dateStr = tempTime;
       }
       contentList.add(ListTile(
-        title: Text(_rq.renderer.extractFromTree(element, ["Title"], "")),
+        title: Text(element["Title"] ?? ""),
         subtitle: Text(FlutterI18n.translate(context, "reading") +
             (progress >= 1
                 ? FlutterI18n.translate(context, "complete")
@@ -188,11 +186,8 @@ class _HistoryListState extends State<HistoryList> {
         ),
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) {
-            var v = {
-              "TopicID": _rq.renderer.extractFromTree(element, ["MainID"], 0)
-            };
-            List<int> from = List<int>.from(
-                _rq.renderer.extractFromTree(element, ["From"], []));
+            var v = {"TopicID": element["MainID"] ?? 0};
+            List<int> from = List<int>.from(element["From"] ?? []);
             if (from.length > 0) v["From"] = from;
             return TopicView(
               value: v,

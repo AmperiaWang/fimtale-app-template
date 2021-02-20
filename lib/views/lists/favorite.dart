@@ -106,23 +106,23 @@ class _FavoriteListState extends State<FavoriteList>
     switch (_curIndex) {
       case 0:
         if (_rq.getCurPage("Topics") <= 0 || withForce)
-          _getSingleFavList("topics", "Topics", "TopicsArray");
+          _getSingleFavList("topics", "Topics", "TopicArray");
         break;
       case 1:
         if (_rq.getCurPage("Blogposts") <= 0 || withForce)
-          _getSingleFavList("blogposts", "Blogposts", "BlogpostsArray");
+          _getSingleFavList("blogposts", "Blogposts", "BlogpostArray");
         break;
       case 2:
         if (_rq.getCurPage("Comments") <= 0 || withForce)
-          _getSingleFavList("comments", "Comments", "CommentsArray");
+          _getSingleFavList("comments", "Comments", "CommentArray");
         break;
       case 3:
         if (_rq.getCurPage("TagTopics") <= 0 || withForce)
-          _getSingleFavList("tags", "TagTopics", "TopicsArray");
+          _getSingleFavList("tags", "TagTopics", "TopicArray");
         break;
       case 4:
         if (_rq.getCurPage("Channels") <= 0 || withForce)
-          _getSingleFavList("channels", "Channels", "ChannelsArray");
+          _getSingleFavList("channels", "Channels", "ChannelArray");
         break;
     }
   }

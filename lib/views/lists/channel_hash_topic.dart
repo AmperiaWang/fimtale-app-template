@@ -83,7 +83,7 @@ class _ChannelHashTopicState extends State<ChannelHashTopic> {
           (data) {
             _channelInfo = data["ChannelInfo"];
             return {
-              "List": data["HashTopicsArray"],
+              "List": data["HashTopicArray"],
               "CurPage": data["Page"],
               "TotalPage": data["TotalPage"]
             };
@@ -109,8 +109,7 @@ class _ChannelHashTopicState extends State<ChannelHashTopic> {
     return new Scaffold(
       appBar: new AppBar(
         title: new Text(FlutterI18n.translate(context, "hash_topics") +
-            " - " +
-            _rq.renderer.extractFromTree(_channelInfo, ["Name"], "")),
+            " - " + (_channelInfo["Name"] ?? "")),
       ),
       body: Container(
         child: RefreshIndicator(
@@ -139,7 +138,7 @@ class _ChannelHashTopicState extends State<ChannelHashTopic> {
     ));
     _rq.getListByName("HashTopics").forEach((element) {
       res.add(ListTile(
-        title: Text(_rq.renderer.extractFromTree(element, ["HashTopic"], "")),
+        title: Text(element["HashTopic"] ?? ""),
         subtitle: RichText(
           maxLines: 1,
           text: TextSpan(
@@ -152,11 +151,7 @@ class _ChannelHashTopicState extends State<ChannelHashTopic> {
                 ),
               ),
               TextSpan(
-                text: " " +
-                    _rq.renderer
-                        .extractFromTree(element, ["Frequency"], 0)
-                        .toString() +
-                    " ",
+                text: " " + (element["Frequency"] ?? 0).toString() + " ",
                 style: TextStyle(
                   color: Theme.of(context).disabledColor,
                 ),
@@ -170,11 +165,8 @@ class _ChannelHashTopicState extends State<ChannelHashTopic> {
               ),
               TextSpan(
                 text: " " +
-                    _rq.renderer.formatTime(_rq.renderer
-                        .extractFromTree(element, ["LastTime"], 0)) +
-                    " " +
-                    _rq.renderer.extractFromTree(element, ["LastUser"], "") +
-                    " ",
+                        _rq.renderer.formatTime(element["LastTime"] ?? 0) +
+                        " " + (element["LastUser"] ?? "") + " ",
                 style: TextStyle(
                   color: Theme.of(context).disabledColor,
                 ),

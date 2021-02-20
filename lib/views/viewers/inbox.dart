@@ -113,7 +113,7 @@ class _InboxViewState extends State<InboxView> {
 
   //加载消息列表。
   _loadMessageList(bool isNew, {bool isJump = false}) async {
-    if (_inboxID <= 0 || _isLoading) return;
+    if (_inboxID <= 0 || _isLoading || _isEnd) return;
     setState(() {
       _isLoading = true;
     });
@@ -135,11 +135,11 @@ class _InboxViewState extends State<InboxView> {
 
     if (result["Status"] == 1) {
       setState(() {
-        _insertMessages(result["MessagesArray"], isJump: isJump);
+        _insertMessages(result["MessageArray"], isJump: isJump);
         if (isNew) _lastRequestTime = result["RequestTime"];
         _isLoading = false;
         _isRefreshing = false;
-        if (!isNew && result["MessagesArray"].isEmpty) _isEnd = true;
+        if (!isNew && result["MessageArray"].isEmpty) _isEnd = true;
       });
     } else {
       print(result["ErrorMessage"]);
@@ -187,7 +187,7 @@ class _InboxViewState extends State<InboxView> {
 
     if (result["Status"] == 1) {
       Toast.show(FlutterI18n.translate(context, "post_complete"), context);
-      _insertMessages(result["MessagesArray"], isJump: true);
+      _insertMessages(result["MessageArray"], isJump: true);
       SpUtil.remove("draft_inbox_" + _inboxID.toString());
       setState(() {
         _mc.text = "";
@@ -241,7 +241,7 @@ class _InboxViewState extends State<InboxView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _rq.updateShareCardInfo().then((value) {
         if (!mounted) return;
-        setState(() {});
+        if (value) setState(() {});
       });
 
       if (_isJump) {
@@ -321,8 +321,7 @@ class _InboxViewState extends State<InboxView> {
 
     _messageList.forEach((element) {
       bool isSpecialBubble = false;
-      int bubbleTime =
-          _rq.renderer.extractFromTree(element, ["DateCreated"], 0);
+      int bubbleTime = element["DateCreated"] ?? 0;
 
       List<Widget> rawContent = MarkdownGenerator(
         data: _rq.renderer

@@ -54,7 +54,7 @@ class _UserListState extends State<UserList> {
     if (_url.length > 0) {
       _rq.updateListByName(_url, "Users", (data) {
         return {
-          "List": data["UsersArray"],
+          "List": data["UserArray"],
           "CurPage": data["Page"],
           "TotalPage": data["TotalPage"]
         };
@@ -68,8 +68,8 @@ class _UserListState extends State<UserList> {
         Toast.show(err, context,
             duration: Toast.LENGTH_SHORT, gravity: Toast.BOTTOM);
       });
-    } else if (value.containsKey("UsersArray")) {
-      _rq.setListByName("Users", value["UsersArray"]);
+    } else if (value.containsKey("UserArray")) {
+      _rq.setListByName("Users", value["UserArray"]);
       _rq.setCurPage("Users", 1);
       _rq.setTotalPage("Users", 1);
     }

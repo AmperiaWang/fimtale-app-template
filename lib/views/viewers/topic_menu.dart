@@ -43,11 +43,10 @@ class _TopicMenuState extends State<TopicMenu> {
       body: new ListView.builder(
         itemCount: _menu.length,
         itemBuilder: (BuildContext context, int index) {
-          var tID = _renderer.extractFromTree(_menu[index], ["ID"], 0);
+          var tID = _menu[index]["ID"] ?? 0;
           return ListTile(
             title: Text(
-              "$index " +
-                  _renderer.extractFromTree(_menu[index], ["Title"], ""),
+              "$index " + (_menu[index]["Title"] ?? ""),
               style: tID == _currentChapterID
                   ? TextStyle(color: Colors.blue)
                   : null,
